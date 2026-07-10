@@ -1,0 +1,86 @@
+openapi: "3.0.3"
+info:
+  title: Canton JSON Ledger API v2
+  version: "2.0.0"
+  description: JSON Ledger API v2 for the Canton Network
+servers:
+  - url: http://localhost:5011
+    description: Local participant node
+paths:
+  /v2/contracts/lookup:
+    post:
+      operationId: lookupContract
+      summary: Look up a contract by ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contractId:
+                  type: string
+                parties:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Contract data
+  /v2/commands/submit-and-wait:
+    post:
+      operationId: submitAndWait
+      summary: Submit a command and wait for completion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                commandId:
+                  type: string
+                workflowId:
+                  type: string
+                parties:
+                  type: array
+                  items:
+                    type: string
+                command:
+                  type: object
+                  properties:
+                    create:
+                      type: object
+                    exercise:
+                      type: object
+                    exerciseByKey:
+                      type: object
+                    createAndExercise:
+                      type: object
+      responses:
+        "200":
+          description: Command submission result
+  /v2/contracts/search:
+    post:
+      operationId: searchContracts
+      summary: Search for contracts by template ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templateIds:
+                  type: array
+                  items:
+                    type: string
+                query:
+                  type: object
+                parties:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Matching contracts

@@ -1,0 +1,143 @@
+module Templates.Trade where
+
+import Daml.Finance.Interface.Types.Common.Types (Parties, InstrumentKey, AccountKey)
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument
+import Daml.Finance.Interface.Holding.Factory.HoldingFactory qualified as HoldingFactory
+import Daml.Finance.Interface.Settlement.Factory.SettlementFactory qualified as SettlementFactory
+import DA.Optional
+import DA.Set
+
+template TradeProposal
+  with
+    proposer: Party
+    acceptor: Party
+    instrumentKey: InstrumentKey
+    notional: Decimal
+    fixedRate: Decimal
+    maturityDate: Date
+    effectiveDate: Date
+  where
+    signatory proposer
+    observer acceptor
+
+    choice Accept: ContractId DerivativeTrade
+      controller acceptor
+      do
+        create DerivativeTrade with
+          dealerA = proposer
+          dealerB = acceptor
+          instrumentKey
+          notional
+          fixedRate
+          maturityDate
+          effectiveDate
+          valuationAgent = None
+          collateralAccountDealerA = None
+          collateralAccountDealerB = None
+          marginCallThreshold = 100000.0
+          minimumTransferAmount = 10000.0
+
+    choice Reject: ()
+      controller acceptor
+      do
+        archive this
+        return ()
+
+    choice Cancel: ()
+      controller proposer
+      do
+        archive this
+        return ()
+
+template DerivativeTrade
+  with
+    dealerA: Party
+    dealerB: Party
+    instrumentKey: InstrumentKey
+    notional: Decimal
+    fixedRate: Decimal
+    maturityDate: Date
+    effectiveDate: Date
+    valuationAgent: Optional Party
+    collateralAccountDealerA: Optional AccountKey
+    collateralAccountDealerB: Optional AccountKey
+    marginCallThreshold: Decimal
+    minimumTransferAmount: Decimal
+  where
+    signatory dealerA, dealerB
+
+    key (dealerA, dealerB, effectiveDate) : (Party, Party, Date)
+    maintainer key._1
+
+    choice GetTrade: DerivativeTrade
+      controller dealerA, dealerB
+      do
+        return this
+
+    choice AcceptNovation: (ContractId DerivativeTrade, ContractId DerivativeTrade, ContractId DerivativeTrade)
+      controller dealerA, dealerB
+      with
+        incomingDealer : Party
+        outgoingDealer : Party
+      do
+        assertMsg "outgoingDealer must be dealerA or dealerB" $
+          outgoingDealer == dealerA or outgoingDealer == dealerB
+        assertMsg "incomingDealer must differ from existing dealers" $
+          incomingDealer /= dealerA and incomingDealer /= dealerB
+        assertMsg "outgoingDealer must be an existing party" $
+          outgoingDealer == dealerA or outgoingDealer == dealerB
+
+        let
+          remainingDealer = if outgoingDealer == dealerA then dealerB else dealerA
+
+        archive this
+
+        newTrade1Cid <- create DerivativeTrade with
+          dealerA = remainingDealer
+          dealerB = incomingDealer
+          instrumentKey
+          notional
+          fixedRate
+          maturityDate
+          effectiveDate
+          valuationAgent
+          collateralAccountDealerA = None
+          collateralAccountDealerB = None
+          marginCallThreshold
+          minimumTransferAmount
+
+        let outgoingProportion = 0.5
+        let incomingProportion = 0.5
+
+        newTrade2Cid <- create DerivativeTrade with
+          dealerA = outgoingDealer
+          dealerB = incomingDealer
+          instrumentKey
+          notional = notional * outgoingProportion
+          fixedRate
+          maturityDate
+          effectiveDate
+          valuationAgent
+          collateralAccountDealerA = None
+          collateralAccountDealerB = None
+          marginCallThreshold
+          minimumTransferAmount
+
+        pure (newTrade1Cid, newTrade2Cid, self)
+
+    choice SetValuationAgent: DerivativeTrade
+      controller dealerA, dealerB
+      with
+        newValuationAgent: Party
+      do
+        create this with valuationAgent = Some newValuationAgent
+
+    choice SetCollateralAccounts: DerivativeTrade
+      controller dealerA, dealerB
+      with
+        accountDealerA: AccountKey
+        accountDealerB: AccountKey
+      do
+        create this with
+          collateralAccountDealerA = Some accountDealerA
+          collateralAccountDealerB = Some accountDealerB

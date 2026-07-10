@@ -1,0 +1,95 @@
+module Tests.MarginTest where
+
+import Daml.Script
+import Templates.Margin
+import DA.Date
+
+testMarginCallPost : Script ()
+testMarginCallPost = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  let dueDate = date 2026 07 15
+
+  demandCid <- submit alice do
+    createCmd MarginCallDemand with
+      callingDealer = alice
+      calledDealer = bob
+      tradeCid = "trade-1"
+      amountRequired = 50000.0
+      valuationSnapshotCid = "snap-1"
+      currency = "USD"
+      dueDate
+      posted = False
+      disputed = False
+
+  postedDemand <- submit bob do
+    exerciseCmd demandCid Post
+
+  assertMsg "Should be posted" (postedDemand.posted == True)
+  assertMsg "Should not be disputed" (postedDemand.disputed == False)
+
+testMarginCallDispute : Script ()
+testMarginCallDispute = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  let dueDate = date 2026 07 15
+
+  demandCid <- submit alice do
+    createCmd MarginCallDemand with
+      callingDealer = alice
+      calledDealer = bob
+      tradeCid = "trade-1"
+      amountRequired = 50000.0
+      valuationSnapshotCid = "snap-1"
+      currency = "USD"
+      dueDate
+      posted = False
+      disputed = False
+
+  disputedDemand <- submit bob do
+    exerciseCmd demandCid Dispute
+
+  assertMsg "Should be disputed" (disputedDemand.disputed == True)
+
+-- E006: Negative — calling dealer cannot debit called dealer's collateral unilaterally
+testE006AuthorizationNegative : Script ()
+testE006AuthorizationNegative = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  let dueDate = date 2026 07 15
+
+  demandCid <- submit alice do
+    createCmd MarginCallDemand with
+      callingDealer = alice
+      calledDealer = bob
+      tradeCid = "trade-1"
+      amountRequired = 50000.0
+      valuationSnapshotCid = "snap-1"
+      currency = "USD"
+      dueDate
+      posted = False
+      disputed = False
+
+  -- Charlie cannot exercise any choice on the demand
+  charliePost <- trySubmit charlie do
+    exerciseCmd demandCid Post
+  case charliePost of
+    Left _ -> pure ()
+    Right _ -> assertFail "Charlie should not be able to post margin call"
+
+  charlieDispute <- trySubmit charlie do
+    exerciseCmd demandCid Dispute
+  case charlieDispute of
+    Left _ -> pure ()
+    Right _ -> assertFail "Charlie should not be able to dispute margin call"
+
+  -- Alice (calling dealer) cannot post — only called dealer can
+  alicePost <- trySubmit alice do
+    exerciseCmd demandCid Post
+  case alicePost of
+    Left _ -> pure ()
+    Right _ -> assertFail "Calling dealer should not be able to post margin call"

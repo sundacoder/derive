@@ -1,0 +1,63 @@
+module Templates.Margin where
+
+import Daml.Finance.Interface.Types.Common.Types (Parties, InstrumentKey, AccountKey)
+import Daml.Finance.Interface.Holding.Holding qualified as Holding
+import DA.Set
+import DA.Date
+
+template ValuationSnapshot
+  with
+    valuationAgent: Party
+    tradeDealerA: Party
+    tradeDealerB: Party
+    instrumentKey: InstrumentKey
+    mtmValue: Decimal
+    valuationDate: Date
+    referencePrice: Decimal
+  where
+    signatory valuationAgent
+    observer tradeDealerA, tradeDealerB
+
+    key (valuationAgent, tradeDealerA, tradeDealerB, valuationDate) : (Party, Party, Party, Date)
+    maintainer key._1
+
+template MarginCallDemand
+  with
+    callingDealer: Party
+    calledDealer: Party
+    tradeCid: Text
+    amountRequired: Decimal
+    valuationSnapshotCid: Text
+    currency: Text
+    dueDate: Date
+    posted: Bool
+    disputed: Bool
+  where
+    signatory callingDealer, calledDealer
+    observer calledDealer
+
+    choice Post: MarginCallDemand
+      controller calledDealer
+      do
+        assertMsg "Cannot post a disputed margin call" (not disputed)
+        assertMsg "Margin call already posted" (not posted)
+        create this with posted = True
+
+    choice Dispute: MarginCallDemand
+      controller calledDealer
+      do
+        assertMsg "Cannot dispute an already posted margin call" (not posted)
+        assertMsg "Margin call already disputed" (not disputed)
+        create this with disputed = True
+
+    choice Cancel: ()
+      controller callingDealer
+      do
+        assertMsg "Cannot cancel a posted or disputed margin call" (not posted and not disputed)
+        archive this
+        return ()
+
+    choice GetDemand: MarginCallDemand
+      controller callingDealer, calledDealer
+      do
+        return this

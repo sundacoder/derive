@@ -1,0 +1,187 @@
+module Tests.NovationTest where
+
+import Daml.Script
+import Templates.Novation
+import Templates.Trade
+import DA.Date
+
+-- Helper: create a trade for testing
+createTestTrade: Script (ContractId DerivativeTrade)
+createTestTrade = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  let effectiveDate = date 2026 07 01
+  let maturityDate = date 2027 07 01
+
+  proposalCid <- submit alice do
+    createCmd TradeProposal with
+      proposer = alice
+      acceptor = bob
+      instrumentKey = None
+      notional = 1000000.0
+      fixedRate = 0.05
+      maturityDate
+      effectiveDate
+
+  submit bob do
+    exerciseCmd proposalCid Accept
+
+-- E003: Negative — outgoing dealer alone cannot force novation completion
+testE003Negative : Script ()
+testE003Negative = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  tradeCid <- createTestTrade
+
+  reqCid <- submit alice do
+    createCmd NovationRequest with
+      requestId = "nov-001"
+      outgoingDealer = alice
+      remainingDealer = bob
+      incomingDealer = charlie
+      originalTradeCid = "trade-1"
+      instrumentKey = "IRS"
+      notional = 1000000.0
+      remainingDealerConsented = False
+      incomingDealerConsented = False
+      createdAt = date 2026 07 10
+
+  -- Alice alone tries to complete — should fail
+  soloComplete <- trySubmit alice do
+    exerciseCmd reqCid CompleteNovation
+  case soloComplete of
+    Left _ -> pure ()
+    Right _ -> assertFail "Outgoing dealer alone should not complete novation"
+
+-- E004: Negative — 2 of 3 signatures insufficient
+testE004Negative : Script ()
+testE004Negative = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  tradeCid <- createTestTrade
+
+  reqCid <- submit alice do
+    createCmd NovationRequest with
+      requestId = "nov-002"
+      outgoingDealer = alice
+      remainingDealer = bob
+      incomingDealer = charlie
+      originalTradeCid = "trade-1"
+      instrumentKey = "IRS"
+      notional = 1000000.0
+      remainingDealerConsented = False
+      incomingDealerConsented = False
+      createdAt = date 2026 07 10
+
+  -- Bob consents
+  reqCid2 <- submit bob do
+    exerciseCmd reqCid CountersignAsRemaining
+
+  -- Alice + Bob try to complete without Charlie — should fail
+  incompleteComplete <- trySubmitMulti [alice, bob] do
+    exerciseCmd reqCid2 CompleteNovation
+  case incompleteComplete of
+    Left _ -> pure ()
+    Right _ -> assertFail "Should not complete without incoming dealer consent"
+
+-- E005: Full 3-party novation — remaining + incoming both countersign
+testE005FullNovation : Script ()
+testE005FullNovation = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  tradeCid <- createTestTrade
+
+  reqCid <- submit alice do
+    createCmd NovationRequest with
+      requestId = "nov-003"
+      outgoingDealer = alice
+      remainingDealer = bob
+      incomingDealer = charlie
+      originalTradeCid = "trade-1"
+      instrumentKey = "IRS"
+      notional = 1000000.0
+      remainingDealerConsented = False
+      incomingDealerConsented = False
+      createdAt = date 2026 07 10
+
+  -- Bob consents
+  reqCid2 <- submit bob do
+    exerciseCmd reqCid CountersignAsRemaining
+
+  -- Charlie consents
+  reqCid3 <- submit charlie do
+    exerciseCmd reqCid2 CountersignAsIncoming
+
+  -- All three complete
+  result <- submitMulti [alice, bob, charlie] do
+    exerciseCmd reqCid3 CompleteNovation
+
+  pure ()
+
+-- Test: reject flow
+testRejectFlow : Script ()
+testRejectFlow = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  tradeCid <- createTestTrade
+
+  reqCid <- submit alice do
+    createCmd NovationRequest with
+      requestId = "nov-004"
+      outgoingDealer = alice
+      remainingDealer = bob
+      incomingDealer = charlie
+      originalTradeCid = "trade-1"
+      instrumentKey = "IRS"
+      notional = 1000000.0
+      remainingDealerConsented = False
+      incomingDealerConsented = False
+      createdAt = date 2026 07 10
+
+  -- Bob rejects
+  submit bob do
+    exerciseCmd reqCid Reject
+
+  -- Charlie should not be able to countersign a rejected request
+  charlieSign <- trySubmit charlie do
+    exerciseCmd reqCid CountersignAsIncoming
+  case charlieSign of
+    Left _ -> pure ()
+    Right _ -> assertFail "Should not be able to countersign a rejected request"
+
+-- Negative: incoming dealer has no trade visibility before full consent
+testIncomingVisibility : Script ()
+testIncomingVisibility = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  tradeCid <- createTestTrade
+
+  reqCid <- submit alice do
+    createCmd NovationRequest with
+      requestId = "nov-005"
+      outgoingDealer = alice
+      remainingDealer = bob
+      incomingDealer = charlie
+      originalTradeCid = "trade-1"
+      instrumentKey = "IRS"
+      notional = 1000000.0
+      remainingDealerConsented = False
+      incomingDealerConsented = False
+      createdAt = date 2026 07 10
+
+  -- Incoming dealer can see NovationRequest (is observer) but NOT DerivativeTrade
+  charlieViewTrade <- trySubmit charlie do
+    exerciseCmd tradeCid GetTrade
+  case charlieViewTrade of
+    Left _ -> pure ()
+    Right _ -> assertFail "Incoming dealer should not see DerivativeTrade before novation"

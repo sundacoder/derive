@@ -1,0 +1,11 @@
+sdk-version: 3.4.0
+name: derive
+version: 0.1.0
+source: src
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+  - .daml/dependencies/daml-finance/package.dar
+build-options:
+  - --target=3.4

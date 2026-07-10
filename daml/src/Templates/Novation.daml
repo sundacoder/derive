@@ -1,0 +1,83 @@
+module Templates.Novation where
+
+import Templates.Trade (DerivativeTrade(..))
+import DA.Set
+
+template NovationRequest
+  with
+    requestId: Text
+    outgoingDealer: Party
+    remainingDealer: Party
+    incomingDealer: Party
+    originalTradeCid: Text
+    instrumentKey: Text
+    notional: Decimal
+    remainingDealerConsented: Bool
+    incomingDealerConsented: Bool
+    createdAt: Date
+  where
+    signatory outgoingDealer, remainingDealer, incomingDealer
+    observer remainingDealer, incomingDealer
+
+    key (requestId: Text) : Text
+    maintainer key
+
+    nonconsuming choice GetRequest: NovationRequest
+      controller outgoingDealer, remainingDealer, incomingDealer
+      do
+        return this
+
+    nonconsuming choice CountersignAsRemaining: ContractId NovationRequest
+      controller remainingDealer
+      do
+        assertMsg "Remaining dealer has already consented" (not remainingDealerConsented)
+        create this with remainingDealerConsented = True
+
+    nonconsuming choice CountersignAsIncoming: ContractId NovationRequest
+      controller incomingDealer
+      do
+        assertMsg "Incoming dealer has already consented" (not incomingDealerConsented)
+        create this with incomingDealerConsented = True
+
+    choice Reject: ()
+      controller outgoingDealer, remainingDealer, incomingDealer
+      do
+        archive this
+        return ()
+
+    choice CompleteNovation: (Text, Text)
+      controller outgoingDealer, remainingDealer, incomingDealer
+      do
+        assertMsg "Remaining dealer has not consented yet" remainingDealerConsented
+        assertMsg "Incoming dealer has not consented yet" incomingDealerConsented
+        archive this
+        pure (originalTradeCid, requestId)
+
+template NovationExecution
+  with
+    executionId: Text
+    requestId: Text
+    outgoingDealer: Party
+    remainingDealer: Party
+    incomingDealer: Party
+    originalTradeCid: Text
+    newTradeCidRemainingIncoming: Text
+    newTradeCidOutgoingIncoming: Text
+    executed: Bool
+  where
+    signatory outgoingDealer, remainingDealer
+    observer incomingDealer
+
+    key (executionId: Text) : Text
+    maintainer key
+
+    choice ConfirmNovation: NovationExecution
+      controller outgoingDealer, remainingDealer
+      do
+        assertMsg "Novation already executed" (not executed)
+        create this with executed = True
+
+    choice GetExecution: NovationExecution
+      controller outgoingDealer, remainingDealer, incomingDealer
+      do
+        return this

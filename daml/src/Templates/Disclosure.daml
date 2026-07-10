@@ -1,0 +1,78 @@
+module Templates.Disclosure where
+
+import DA.Date
+import DA.Set
+
+template RegulatoryDisclosure
+  with
+    regulator: Party
+    reportId: Text
+    reportPeriodStart: Date
+    reportPeriodEnd: Date
+    notionalBucket: Text
+    assetClass: Text
+    maturityBucket: Text
+    counterpartyLeis: [Text]
+    tradeCount: Int
+    totalGrossNotional: Decimal
+    generatedAt: Date
+    schemaVersion: Text
+  where
+    signatory regulator
+    observer regulator
+
+    key (reportId: Text) : Text
+    maintainer key
+
+    choice GetDisclosure: RegulatoryDisclosure
+      controller regulator
+      do
+        return this
+
+template RegulatoryDisclosureRequest
+  with
+    requestId: Text
+    regulator: Party
+    platformOperator: Party
+    reportPeriodStart: Date
+    reportPeriodEnd: Date
+    requestedAt: Date
+    fulfilled: Bool
+  where
+    signatory regulator, platformOperator
+    observer platformOperator
+
+    key (requestId: Text) : Text
+    maintainer key
+
+    choice Fulfill: ContractId RegulatoryDisclosure
+      controller platformOperator
+      with
+        notionalBucket: Text
+        assetClass: Text
+        maturityBucket: Text
+        counterpartyLeis: [Text]
+        tradeCount: Int
+        totalGrossNotional: Decimal
+        schemaVersion: Text
+      do
+        archive this
+        create RegulatoryDisclosure with
+          regulator
+          reportId = requestId
+          reportPeriodStart
+          reportPeriodEnd
+          notionalBucket
+          assetClass
+          maturityBucket
+          counterpartyLeis
+          tradeCount
+          totalGrossNotional
+          generatedAt = date 2026 07 10
+          schemaVersion
+
+    choice CancelRequest: ()
+      controller regulator
+      do
+        archive this
+        return ()
