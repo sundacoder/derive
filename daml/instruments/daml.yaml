@@ -1,11 +1,10 @@
 sdk-version: 3.4.0
-name: derive
+name: derive-instruments
 version: 0.1.0
 source: src
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
-  - .daml/dependencies/daml-finance/package.dar
+  - daml-finance
 build-options:
   - --target=3.4
