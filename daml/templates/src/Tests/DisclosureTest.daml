@@ -16,15 +16,15 @@ testE008RegulatorNoTradeVisibility = do
     createCmd RegulatoryDisclosure with
       regulator
       reportId = "RPT-001"
-      reportPeriodStart = date 2026 07 01
-      reportPeriodEnd = date 2026 07 31
+      reportPeriodStart = date 2026 Jul 01
+      reportPeriodEnd = date 2026 Jul 31
       notionalBucket = "1M-10M"
       assetClass = "InterestRateSwap"
       maturityBucket = "1Y-5Y"
       counterpartyLeis = ["LEI-ALICE", "LEI-BOB"]
       tradeCount = 1
       totalGrossNotional = 1000000.0
-      generatedAt = date 2026 07 10
+      generatedAt = date 2026 Jul 10
       schemaVersion = "1.0.0"
 
   -- Regulator CAN see RegulatoryDisclosure
@@ -41,17 +41,17 @@ testDisclosureRequestFlow = do
   regulator <- allocateParty "Regulator"
   operator <- allocateParty "PlatformOperator"
 
-  let startDate = date 2026 07 01
-  let endDate = date 2026 07 31
+  let startDate = date 2026 Jul 01
+  let endDate = date 2026 Jul 31
 
-  reqCid <- submitMulti [regulator, operator] do
+  reqCid <- submitMulti [regulator, operator] [] do
     createCmd RegulatoryDisclosureRequest with
       requestId = "REQ-001"
       regulator
       platformOperator = operator
       reportPeriodStart = startDate
       reportPeriodEnd = endDate
-      requestedAt = date 2026 07 10
+      requestedAt = date 2026 Jul 10
       fulfilled = False
 
   disclosureCid <- submit operator do
@@ -83,15 +83,15 @@ testE007FieldSet = do
     createCmd RegulatoryDisclosure with
       regulator
       reportId = "RPT-002"
-      reportPeriodStart = date 2026 07 01
-      reportPeriodEnd = date 2026 07 31
+      reportPeriodStart = date 2026 Jul 01
+      reportPeriodEnd = date 2026 Jul 31
       notionalBucket = "1M-10M"
       assetClass = "InterestRateSwap"
       maturityBucket = "1Y-5Y"
       counterpartyLeis = ["LEI-ALICE", "LEI-BOB"]
       tradeCount = 1
       totalGrossNotional = 1000000.0
-      generatedAt = date 2026 07 10
+      generatedAt = date 2026 Jul 10
       schemaVersion = "1.0.0"
 
   disclosure <- submit regulator do

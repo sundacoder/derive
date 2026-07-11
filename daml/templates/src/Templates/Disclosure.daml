@@ -1,7 +1,6 @@
 module Templates.Disclosure where
 
 import DA.Date
-import DA.Set
 
 template RegulatoryDisclosure
   with
@@ -21,9 +20,6 @@ template RegulatoryDisclosure
     signatory regulator
     observer regulator
 
-    key (reportId: Text) : Text
-    maintainer key
-
     choice GetDisclosure: RegulatoryDisclosure
       controller regulator
       do
@@ -42,11 +38,7 @@ template RegulatoryDisclosureRequest
     signatory regulator, platformOperator
     observer platformOperator
 
-    key (requestId: Text) : Text
-    maintainer key
-
     choice Fulfill: ContractId RegulatoryDisclosure
-      controller platformOperator
       with
         notionalBucket: Text
         assetClass: Text
@@ -55,8 +47,8 @@ template RegulatoryDisclosureRequest
         tradeCount: Int
         totalGrossNotional: Decimal
         schemaVersion: Text
+      controller platformOperator
       do
-        archive this
         create RegulatoryDisclosure with
           regulator
           reportId = requestId
@@ -68,11 +60,10 @@ template RegulatoryDisclosureRequest
           counterpartyLeis
           tradeCount
           totalGrossNotional
-          generatedAt = date 2026 07 10
+          generatedAt = date 2026 Jul 10
           schemaVersion
 
     choice CancelRequest: ()
       controller regulator
       do
-        archive this
         return ()

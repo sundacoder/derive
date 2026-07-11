@@ -2,7 +2,7 @@ module Tests.NovationTest where
 
 import Daml.Script
 import Templates.Novation
-import Templates.Trade
+import Templates.Trade hiding (Reject)
 import DA.Date
 
 -- Helper: create a trade for testing
@@ -10,14 +10,14 @@ createTestTrade: Script (ContractId DerivativeTrade)
 createTestTrade = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
-  let effectiveDate = date 2026 07 01
-  let maturityDate = date 2027 07 01
+  let effectiveDate = date 2026 Jul 01
+  let maturityDate = date 2027 Jul 01
 
   proposalCid <- submit alice do
     createCmd TradeProposal with
       proposer = alice
       acceptor = bob
-      instrumentKey = None
+      instrumentLabel = "IRS"
       notional = 1000000.0
       fixedRate = 0.05
       maturityDate
@@ -46,7 +46,7 @@ testE003Negative = do
       notional = 1000000.0
       remainingDealerConsented = False
       incomingDealerConsented = False
-      createdAt = date 2026 07 10
+      createdAt = date 2026 Jul 10
 
   -- Alice alone tries to complete — should fail
   soloComplete <- trySubmit alice do
@@ -75,14 +75,14 @@ testE004Negative = do
       notional = 1000000.0
       remainingDealerConsented = False
       incomingDealerConsented = False
-      createdAt = date 2026 07 10
+      createdAt = date 2026 Jul 10
 
   -- Bob consents
   reqCid2 <- submit bob do
     exerciseCmd reqCid CountersignAsRemaining
 
   -- Alice + Bob try to complete without Charlie — should fail
-  incompleteComplete <- trySubmitMulti [alice, bob] do
+  incompleteComplete <- trySubmitMulti [alice, bob] [] do
     exerciseCmd reqCid2 CompleteNovation
   case incompleteComplete of
     Left _ -> pure ()
@@ -108,7 +108,7 @@ testE005FullNovation = do
       notional = 1000000.0
       remainingDealerConsented = False
       incomingDealerConsented = False
-      createdAt = date 2026 07 10
+      createdAt = date 2026 Jul 10
 
   -- Bob consents
   reqCid2 <- submit bob do
@@ -119,7 +119,7 @@ testE005FullNovation = do
     exerciseCmd reqCid2 CountersignAsIncoming
 
   -- All three complete
-  result <- submitMulti [alice, bob, charlie] do
+  result <- submitMulti [alice, bob, charlie] [] do
     exerciseCmd reqCid3 CompleteNovation
 
   pure ()
@@ -144,7 +144,7 @@ testRejectFlow = do
       notional = 1000000.0
       remainingDealerConsented = False
       incomingDealerConsented = False
-      createdAt = date 2026 07 10
+      createdAt = date 2026 Jul 10
 
   -- Bob rejects
   submit bob do
@@ -177,7 +177,7 @@ testIncomingVisibility = do
       notional = 1000000.0
       remainingDealerConsented = False
       incomingDealerConsented = False
-      createdAt = date 2026 07 10
+      createdAt = date 2026 Jul 10
 
   -- Incoming dealer can see NovationRequest (is observer) but NOT DerivativeTrade
   charlieViewTrade <- trySubmit charlie do

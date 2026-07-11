@@ -1,7 +1,6 @@
 module Templates.Novation where
 
 import Templates.Trade (DerivativeTrade(..))
-import DA.Set
 
 template NovationRequest
   with
@@ -18,9 +17,6 @@ template NovationRequest
   where
     signatory outgoingDealer, remainingDealer, incomingDealer
     observer remainingDealer, incomingDealer
-
-    key (requestId: Text) : Text
-    maintainer key
 
     nonconsuming choice GetRequest: NovationRequest
       controller outgoingDealer, remainingDealer, incomingDealer
@@ -42,7 +38,6 @@ template NovationRequest
     choice Reject: ()
       controller outgoingDealer, remainingDealer, incomingDealer
       do
-        archive this
         return ()
 
     choice CompleteNovation: (Text, Text)
@@ -50,7 +45,6 @@ template NovationRequest
       do
         assertMsg "Remaining dealer has not consented yet" remainingDealerConsented
         assertMsg "Incoming dealer has not consented yet" incomingDealerConsented
-        archive this
         pure (originalTradeCid, requestId)
 
 template NovationExecution
@@ -68,10 +62,7 @@ template NovationExecution
     signatory outgoingDealer, remainingDealer
     observer incomingDealer
 
-    key (executionId: Text) : Text
-    maintainer key
-
-    choice ConfirmNovation: NovationExecution
+    choice ConfirmNovation: ContractId NovationExecution
       controller outgoingDealer, remainingDealer
       do
         assertMsg "Novation already executed" (not executed)

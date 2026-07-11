@@ -9,7 +9,7 @@ testMarginCallPost = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
 
-  let dueDate = date 2026 07 15
+  let dueDate = date 2026 Jul 15
 
   demandCid <- submit alice do
     createCmd MarginCallDemand with
@@ -26,15 +26,18 @@ testMarginCallPost = do
   postedDemand <- submit bob do
     exerciseCmd demandCid Post
 
-  assertMsg "Should be posted" (postedDemand.posted == True)
-  assertMsg "Should not be disputed" (postedDemand.disputed == False)
+  postedData <- submit bob do
+    exerciseCmd postedDemand GetDemand
+
+  assertMsg "Should be posted" (postedData.posted == True)
+  assertMsg "Should not be disputed" (postedData.disputed == False)
 
 testMarginCallDispute : Script ()
 testMarginCallDispute = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
 
-  let dueDate = date 2026 07 15
+  let dueDate = date 2026 Jul 15
 
   demandCid <- submit alice do
     createCmd MarginCallDemand with
@@ -51,7 +54,10 @@ testMarginCallDispute = do
   disputedDemand <- submit bob do
     exerciseCmd demandCid Dispute
 
-  assertMsg "Should be disputed" (disputedDemand.disputed == True)
+  disputedData <- submit bob do
+    exerciseCmd disputedDemand GetDemand
+
+  assertMsg "Should be disputed" (disputedData.disputed == True)
 
 -- E006: Negative — calling dealer cannot debit called dealer's collateral unilaterally
 testE006AuthorizationNegative : Script ()
@@ -60,7 +66,7 @@ testE006AuthorizationNegative = do
   bob <- allocateParty "Bob"
   charlie <- allocateParty "Charlie"
 
-  let dueDate = date 2026 07 15
+  let dueDate = date 2026 Jul 15
 
   demandCid <- submit alice do
     createCmd MarginCallDemand with

@@ -1,4 +1,4 @@
-sdk-version: 3.4.0
+sdk-version: 3.4.11
 name: derive-templates
 version: 0.1.0
 source: src
@@ -6,7 +6,3 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-  - daml-finance
-  - ../instruments/.daml/dist/derive-instruments-0.1.0.dar
-build-options:
-  - --target=3.4

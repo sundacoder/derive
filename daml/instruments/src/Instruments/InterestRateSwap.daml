@@ -1,14 +1,5 @@
 module Instruments.InterestRateSwap where
 
-import Daml.Finance.Interface.Types.Common.Types
-import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument
-import Daml.Finance.Interface.Instrument.Types (RequestExercise(..))
-import Daml.Finance.Interface.Lifecycle.Rule.Lifecycle (Evolve(..))
-import DA.Date
-import DA.Optional
-import DA.Record
-import DA.Set
-
 data InterestRateSwapType = FixedForFloating | FixedForFixed
   deriving (Eq, Show, Bounded, Enum)
 
@@ -28,7 +19,7 @@ template InterestRateSwap
     notional: Decimal
   where
     signatory issuer
-    observer issuer
+
     choice GetInstrument: InterestRateSwap
       controller issuer
       do

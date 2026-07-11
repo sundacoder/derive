@@ -11,15 +11,15 @@ run = do
   charlie <- allocateParty "Charlie"
   regulator <- allocateParty "Regulator"
 
-  let effectiveDate = date 2026 07 01
-  let maturityDate = date 2027 07 01
+  let effectiveDate = date 2026 Jul 01
+  let maturityDate = date 2027 Jul 01
 
   -- E001: Happy path — Propose then accept trade
   proposalCid <- submit alice do
     createCmd TradeProposal with
       proposer = alice
       acceptor = bob
-      instrumentKey = None
+      instrumentLabel = "IRS"
       notional = 1000000.0
       fixedRate = 0.05
       maturityDate
@@ -56,7 +56,7 @@ run = do
     Right _ -> assertFail "Single party should not be able to modify DerivativeTrade"
 
   -- Cleanup: archive the trade
-  submitMulti [alice, bob] do
+  submitMulti [alice, bob] [] do
     exerciseCmd tradeCid AcceptNovation with
       incomingDealer = charlie
       outgoingDealer = alice
@@ -67,14 +67,14 @@ testE001HappyPath : Script ()
 testE001HappyPath = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
-  let effectiveDate = date 2026 07 01
-  let maturityDate = date 2027 07 01
+  let effectiveDate = date 2026 Jul 01
+  let maturityDate = date 2027 Jul 01
 
   proposalCid <- submit alice do
     createCmd TradeProposal with
       proposer = alice
       acceptor = bob
-      instrumentKey = None
+      instrumentLabel = "IRS"
       notional = 1000000.0
       fixedRate = 0.05
       maturityDate
@@ -93,8 +93,8 @@ testE002NoDirectCreate = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   charlie <- allocateParty "Charlie"
-  let effectiveDate = date 2026 07 01
-  let maturityDate = date 2027 07 01
+  let effectiveDate = date 2026 Jul 01
+  let maturityDate = date 2027 Jul 01
 
   -- Alice cannot create a DerivativeTrade with Bob as signatory unilaterally
   -- (test verifies the propose-accept pattern is the only path)
@@ -102,14 +102,13 @@ testE002NoDirectCreate = do
     createCmd DerivativeTrade with
       dealerA = alice
       dealerB = bob
-      instrumentKey = None
+      instrumentLabel = "IRS"
       notional = 1000000.0
       fixedRate = 0.05
       maturityDate
       effectiveDate
       valuationAgent = None
-      collateralAccountDealerA = None
-      collateralAccountDealerB = None
+
       marginCallThreshold = 100000.0
       minimumTransferAmount = 10000.0
   pure ()
@@ -119,14 +118,14 @@ testAuthorizationNegative = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   charlie <- allocateParty "Charlie"
-  let effectiveDate = date 2026 07 01
-  let maturityDate = date 2027 07 01
+  let effectiveDate = date 2026 Jul 01
+  let maturityDate = date 2027 Jul 01
 
   proposalCid <- submit alice do
     createCmd TradeProposal with
       proposer = alice
       acceptor = bob
-      instrumentKey = None
+      instrumentLabel = "IRS"
       notional = 1000000.0
       fixedRate = 0.05
       maturityDate
