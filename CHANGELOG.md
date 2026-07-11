@@ -5,6 +5,30 @@ All notable changes to DERIVE are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-07-11
+
+### Fixed
+
+#### Daml Build
+- **Choice `with`/`controller` order** — SDK 3.4.11 parser requires `with` block to appear before `controller` in choice definitions; previously `controller` came first, causing `parse error on input 'with'`
+- **`archive this` removed** — consuming choices auto-archive; `archive this` is invalid because `this` is template data, not `ContractId`. Removed from `Reject`, `Cancel`, `CompleteNovation`, and `Fulfill` choices across all templates
+- **Boolean operators** — replaced `or`/`and` (list functions) with `||`/`&&` (boolean operators) in assertion expressions
+- **`create` return types** — `create` returns `ContractId T`, not `T`; fixed `SetValuationAgent` and `ConfirmNovation` choice return types
+- **`date` Month type** — `date 2026 07 15` → `date 2026 Jul 15`; second argument expects `Month` enum type (`Jan`, `Jul`, etc.)
+- **`submitMulti`/`trySubmitMulti` arity** — SDK 3.4.11 requires 3 arguments (`[Party] -> [Party] -> Commands a`); added missing `[]` readers argument
+- **Ambiguous `Reject`** — resolved import conflict between `Templates.Novation.Reject` and `Templates.Trade.Reject` by using `hiding` import
+- **`0.5` numeric ambiguity** — added explicit `: Decimal` type annotation
+
+### Changed
+- **Multi-package restructuring** — `derive-instruments` split from `derive-templates`; templates depend on instruments via DAR dependency
+- **Daml SDK** — upgraded from 3.4.0 to 3.4.11
+- **`daml-finance` removed** — dependency removed from both packages (incompatible SDK version 2.10.0); templates refactored to use primitive types (`Text` instead of `InstrumentKey`/`AccountKey`)
+- **Contract keys removed** — `key`/`maintainer` not supported by default Daml-LF in SDK 3.4.11
+- **`dpm` CLI** — installed and configured (GitHub release binary, version 1.0.21)
+
+### Removed
+- `derive-instruments` as a build dependency of `derive-templates` (unused; DAR is self-contained)
+
 ## [0.1.0] — 2026-07-10
 
 ### Added
@@ -58,7 +82,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Technical Debt (Known)
 - Rust IPC commands are stubbed against in-memory state — need integration with real JSON Ledger API v2 endpoints
 - PQS read model is defined but not yet wired to the frontend
-- Tauri Rust side requires `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` system dependencies to compile
+- Tauri Rust side requires `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` system dependencies to compile (no sudo available)
 - E2E tests are scaffolded with Playwright but not yet run against a Devnet participant
 - No CI/CD pipeline configured yet
-- `dpm` CLI not installed on development machine — Daml contracts cannot be built or tested locally yet
+- `dpm test` requires Java (not installed on development machine)
+- `daml-script` dependency included in templates package (should be split into separate test package for production)

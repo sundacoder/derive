@@ -24,7 +24,7 @@ DERIVE is a desktop application for confidential bilateral derivatives trade aff
 ├───────────────────────────────────────────┤
 │  Participant Node — JSON Ledger API v2    │
 │  ┌─────────────────────────────────────┐   │
-│  │  Vetted DAR (daml-finance + DERIVE) │   │
+│  │  Vetted DAR (derive-templates)     │   │
 │  │  PQS — Postgres-backed read model   │   │
 │  └─────────────────────────────────────┘   │
 └─────────────────────────────────────────────┘
@@ -53,8 +53,8 @@ DERIVE is a desktop application for confidential bilateral derivatives trade aff
 |---|---|
 | Desktop shell | **Tauri v2** (Rust + WebView2) |
 | Frontend | **Next.js 16** (static export) + **React 19** + **shadcn/ui** + **Zustand** + **TanStack Query** |
-| Smart contracts | **Daml** (Canton SDK 3.4+, `dpm` CLI) |
-| Financial library | **digital-asset/daml-finance** (Holdings, Instruments, Settlement, Lifecycle) |
+| Smart contracts | **Daml** (Canton SDK 3.4.11, `dpm` CLI 1.0.21) |
+| Daml packages | **derive-instruments** (instrument definitions) + **derive-templates** (application contracts) |
 | Network | **Canton Network** — Devnet |
 | Wallet/auth | **CIP-103** via `@canton-network/dapp-sdk` + Wallet Gateway |
 | Off-ledger reads | **Participant Query Store (PQS)** — Postgres |
@@ -90,12 +90,15 @@ derive/
 │   ├── capabilities/             Tauri capability permissions
 │   └── tauri.conf.json           Tauri configuration (CSP, window, bundle)
 ├── daml/
-│   ├── src/
-│   │   ├── Templates/            Daml contract templates
-│   │   ├── Instruments/          Daml Finance instrument extensions
-│   │   └── Tests/                Daml Script tests (incl. negative-authorization)
-│   ├── daml.yaml                 Daml project config
-│   └── multi-package.yaml        Multi-package build config
+│   ├── instruments/              Package: derive-instruments
+│   │   ├── src/Instruments/      InterestRateSwap template
+│   │   └── daml.yaml
+│   ├── templates/                Package: derive-templates
+│   │   ├── src/
+│   │   │   ├── Templates/        Trade, Margin, Novation, Disclosure contracts
+│   │   │   └── Tests/            Daml Script tests (incl. negative-authorization)
+│   │   └── daml.yaml
+│   └── dpm.json                  Multi-package build config
 ├── scripts/
 │   ├── lint-capabilities.mjs     Tauri capability Poka-Yoke check
 │   └── audit-privacy-mapping.mjs Signatory/observer/disclosure audit
@@ -110,7 +113,8 @@ derive/
 
 - **Node.js** >= 22
 - **Rust** >= 1.77 (stable)
-- **dpm CLI** (Digital Asset Package Manager) — Canton SDK 3.4+
+- **dpm CLI** (Digital Asset Package Manager) — Canton SDK 3.4.11
+- **Java** >= 11 (required for `dpm test` / Daml Sandbox)
 - **System dependencies** (Linux):
   ```bash
   sudo apt install pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libssl-dev
@@ -131,11 +135,19 @@ Open [http://localhost:3000](http://localhost:3000) to see the UI.
 npx tsc --strict --noEmit
 ```
 
-### Daml Build & Test
+### Daml Build
 
 ```bash
 cd daml
 dpm build
+```
+
+Output DAR at `daml/templates/.daml/dist/derive-templates-0.1.0.dar`.
+
+### Daml Test (requires Java)
+
+```bash
+cd daml
 dpm test
 ```
 
@@ -150,7 +162,7 @@ cargo clippy -- -D warnings
 ## Non-Negotiables
 
 1. **Never** allow a consuming choice on a multi-signatory contract to be exercised by fewer than the full authorized set of controllers
-2. **Never** grant the Regulator/Trade Repository party observer status on any trade-level template
+2. **Never** grant the Regulator party observer status on any trade-level template
 3. **Never** store private key material outside the Stronghold vault or Wallet Gateway boundary
 4. **Never** vet a DAR without 100% `dpm test` pass (including negative-authorization suite)
 5. **Never** reintroduce `@daml/ledger` or `@daml/react` (target removed JSON Ledger API v1)
