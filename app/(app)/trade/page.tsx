@@ -97,7 +97,7 @@ export default function TradePage() {
           <CardContent>
             {proposals && proposals.length > 0 ? (
               <div className="space-y-2">
-                {proposals.map((proposal) => (
+                {proposals.map((proposal: { proposal_id: string; proposer: string; acceptor: string; notional: number; fixed_rate: number; status: string }) => (
                   <div
                     key={proposal.proposal_id}
                     className="p-3 border rounded-md text-sm space-y-1"

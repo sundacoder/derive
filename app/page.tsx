@@ -31,21 +31,21 @@ export default function DashboardPage() {
     enabled: connection.connected,
   });
 
-  const handleConnect = async () => {
+  const handleConnect = async (partyId: string) => {
     try {
       const result = await ipc.wallet.connect({
-        wallet_provider: "Stronghold (Dev)",
-        participant_url: "http://localhost:5011",
+        wallet_provider: "Seaport DevNet",
+        participant_url: partyId,
       });
       setConnection({
         connected: true,
         party_hint: result.party_hint,
-        participant_url: "http://localhost:5011",
-        wallet_provider: "Stronghold (Dev)",
+        participant_url: partyId,
+        wallet_provider: "Seaport DevNet",
       });
       setLedgerConnected(true);
     } catch (err) {
-      console.error("Failed to connect wallet:", err);
+      console.error("Failed to connect:", err);
     }
   };
 
