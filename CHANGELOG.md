@@ -5,6 +5,41 @@ All notable changes to DERIVE are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-07-13
+
+### Added
+
+#### Next.js API Routes (Tauri Replacement)
+- **16 Route Handlers** under `app/api/` — trade propose/accept/list/accept-novation, margin demand/post/dispute/list, novation request/countersign/complete/list, disclosure publish/list, valuation snapshot
+- **Shared Canton ledger client** (`lib/canton/client.ts`) — `submitCreate`, `submitExercise`, `queryContracts` against JSON Ledger API v2
+- **Env-var-backed config** (`lib/canton/config.ts`) — template ID constants driven by `CANTON_PACKAGE_ID`
+- **`.env.example`** — template for required environment variables
+
+#### Canton DevNet Integration
+- DAR (`derive-templates-0.1.0.dar`) built and deployed to Seaport 5n sandbox
+- `dpm codegen-js` output committed under `lib/daml/generated/`
+- Ledger API URL configured: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
+
+### Changed
+
+- **Architecture pivot**: Tauri desktop → Next.js API Routes + Vercel deployment (hackathon track)
+- `lib/ipc.ts` rewritten — `@tauri-apps/api` `invoke()` replaced with `fetch()` to API routes; interface preserved so all frontend components work unchanged
+- `next.config.ts` — static export (`output: "export"`) removed; dynamic Node.js hosting enabled for API routes
+- `ConnectWalletDialog.tsx` — Stronghold button replaced with Party ID text-field paste flow
+- Daml contract templates deployed on Seaport: `DerivativeTrade` and `TradeProposal` active on ledger
+
+### Removed
+
+- **Tauri Rust backend** (`src-tauri/`) — no longer on critical path; all IPC via HTTP
+- **Tauri dependencies** (`@tauri-apps/api`, `@tauri-apps/plugin-store`, `@tauri-apps/plugin-stronghold`) remain in `package.json` but unused
+- **Rust build prerequisites** — `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, etc. no longer required
+
+### Known Issues
+
+- Ledger API requires OIDC JWT auth (Authentik) — `client.ts` does not yet send `Authorization` header
+- `dpm test` requires Java JVM — cannot run Daml Script tests locally
+- No Vercel project configured yet for deployment target
+
 ## [0.1.1] — 2026-07-11
 
 ### Fixed

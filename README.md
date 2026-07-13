@@ -2,109 +2,101 @@
 
 **Confidential Bilateral Derivatives Margin & Novation Network**
 
-DERIVE is a desktop application for confidential bilateral derivatives trade affirmation, oracle-fed margin calls, three-party novation, and regulatory disclosure — built on the **Canton Network** using **Daml smart contracts**, with a **Tauri v2** desktop shell and **Next.js** frontend.
+DERIVE is a web application for confidential bilateral derivatives trade affirmation, oracle-fed margin calls, three-party novation, and regulatory disclosure — built on the **Canton Network** using **Daml smart contracts**, with a **Next.js** frontend deployed on **Vercel**.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│  Tauri Desktop App (one instance per party) │
-│  ┌───────────────────────────────────────┐  │
-│  │  Next.js (static export) + React 19   │  │
-│  │  Zustand + TanStack Query             │  │
-│  ├───────────────────────────────────────┤  │
-│  │  Rust IPC Layer                       │  │
-│  │  #[tauri::command] · serde_json ↔ Zod│  │
-│  ├───────────────────────────────────────┤  │
-│  │  Stronghold Vault (dev-mode signing)  │  │
-│  └───────────────────────────────────────┘  │
-├───────────────────────────────────────────┤
-│  Generated Ledger Client                   │
-│  (openapi-typescript + openapi-fetch)      │
-├───────────────────────────────────────────┤
-│  Participant Node — JSON Ledger API v2    │
-│  ┌─────────────────────────────────────┐   │
-│  │  Vetted DAR (derive-templates)     │   │
-│  │  PQS — Postgres-backed read model   │   │
-│  └─────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
-          │
-          ▼
-  ┌─────────────────┐
-  │ Canton Network  │
-  │ Synchronizer    │
-  └─────────────────┘
+┌──────────────────────────────────────────────┐
+│  Browser / Vercel (Next.js API Routes)        │
+│  ┌────────────────────────────────────────┐  │
+│  │  React 19 + shadcn/ui + Zustand        │  │
+│  │  TanStack Query                        │  │
+│  ├────────────────────────────────────────┤  │
+│  │  lib/ipc.ts → fetch() to API routes    │  │
+│  ├────────────────────────────────────────┤  │
+│  │  Next.js Route Handlers (app/api/)     │  │
+│  │  lib/canton/client.ts → Ledger API v2 │  │
+│  └────────────────────────────────────────┘  │
+├──────────────────────────────────────────────┤
+│  Canton DevNet — Seaport 5n Sandbox           │
+│  ┌────────────────────────────────────────┐  │
+│  │  Vetted DAR (derive-templates)        │  │
+│  │  JSON Ledger API v2                   │  │
+│  │  Authentik OIDC (JWT auth)            │  │
+│  └────────────────────────────────────────┘  │
+├──────────────────────────────────────────────┤
+│  Canton Network Synchronizer                  │
+└──────────────────────────────────────────────┘
 ```
 
 ## Features
 
 | Flow | Description |
 |---|---|
-| **F1 — Connect Wallet** | CIP-103 dApp API wallet connection via Stronghold (dev) or Wallet Gateway (production) |
+| **F1 — Connect Wallet** | Paste Party ID from Seaport dashboard to connect |
 | **F2 — Trade Affirmation** | Propose-accept pattern for bilateral swap derivatives, enforced on-ledger |
 | **F3 — Margin Call** | Valuation-triggered margin demands with Post and Dispute choices |
 | **F4 — Novation** | Three-party trade novation using Multiple Party Agreement pattern (all three must countersign) |
 | **F5 — Regulatory Disclosure** | Aggregated reporting via explicit disclosure contracts — regulator never sees trade economics |
-| **F6 — App/DAR Update** | Ed25519-signed Tauri updates and dpm-based DAR lifecycle |
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Desktop shell | **Tauri v2** (Rust + WebView2) |
-| Frontend | **Next.js 16** (static export) + **React 19** + **shadcn/ui** + **Zustand** + **TanStack Query** |
+| Hosting | **Vercel** (Next.js API Routes + static assets) |
+| Frontend | **Next.js 16** + **React 19** + **shadcn/ui** + **Zustand** + **TanStack Query** |
 | Smart contracts | **Daml** (Canton SDK 3.4.11, `dpm` CLI 1.0.21) |
-| Daml packages | **derive-instruments** (instrument definitions) + **derive-templates** (application contracts) |
-| Network | **Canton Network** — Devnet |
-| Wallet/auth | **CIP-103** via `@canton-network/dapp-sdk` + Wallet Gateway |
-| Off-ledger reads | **Participant Query Store (PQS)** — Postgres |
-| IPC validation | **Zod** (TypeScript) + **serde** (Rust) |
+| Daml packages | **derive-templates** (Trade, Margin, Novation, Disclosure contracts) |
+| Network | **Canton Network** — Devnet (Seaport 5n Sandbox) |
+| Wallet/auth | Seaport Party ID + Authentik OIDC JWT (planned) |
+| IPC validation | **Zod** |
 
 ## Project Structure
 
 ```
 derive/
-├── app/                          Next.js route groups
-│   └── (app)/
-│       ├── trade/                Trade affirmation UI
-│       ├── margin/               Margin call UI
-│       ├── novation/             Novation UI
-│       └── disclosure/           Regulatory disclosure UI
-├── components/                   React components
-│   ├── trade/                    Trade-specific components
-│   ├── margin/                   Margin-specific components
-│   ├── novation/                 Novation-specific components
-│   ├── disclosure/               Disclosure-specific components
-│   └── ui/                       shadcn/ui primitives
+├── app/
+│   ├── (app)/                     Route group (authenticated pages)
+│   │   ├── trade/                 Trade affirmation UI
+│   │   ├── margin/                Margin call UI
+│   │   ├── novation/              Novation UI
+│   │   └── disclosure/            Regulatory disclosure UI
+│   ├── api/                       Next.js Route Handlers
+│   │   ├── trade/                 Trade propose/accept/list/accept-novation
+│   │   ├── margin/                Margin demand/post/dispute/list
+│   │   ├── novation/              Novation request/countersign/complete/list
+│   │   ├── disclosure/            Disclosure publish/list
+│   │   └── valuation/             Valuation snapshot
+│   └── page.tsx                   Landing / wallet connect page
+├── components/                    React components
+│   ├── trade/                     Trade-specific components
+│   ├── margin/                    Margin-specific components
+│   ├── novation/                  Novation-specific components
+│   ├── disclosure/                Disclosure-specific components
+│   └── ui/                        shadcn/ui primitives
 ├── lib/
-│   ├── types/                    Shared TypeScript types & Zod schemas
-│   ├── stores/                   Zustand stores (wallet, app)
-│   ├── daml/generated/           Generated Ledger API client
-│   ├── ipc.ts                    Tauri invoke() wrapper
-│   └── providers.tsx             TanStack Query provider
-├── src-tauri/
-│   ├── src/
-│   │   ├── commands/             Rust Tauri commands per feature
-│   │   ├── state/                Application state
-│   │   └── stronghold/           Dev-mode key storage
-│   ├── capabilities/             Tauri capability permissions
-│   └── tauri.conf.json           Tauri configuration (CSP, window, bundle)
+│   ├── canton/
+│   │   ├── client.ts              Canton Ledger API v2 client (submitCreate, submitExercise, queryContracts)
+│   │   └── config.ts              Env-var-backed template ID constants
+│   ├── types/                     Shared TypeScript types & Zod schemas
+│   ├── stores/                    Zustand stores (wallet, app)
+│   ├── daml/generated/            dpm codegen-js output
+│   ├── ipc.ts                     fetch()-based IPC (formerly Tauri invoke())
+│   └── providers.tsx              TanStack Query provider
 ├── daml/
-│   ├── instruments/              Package: derive-instruments
-│   │   ├── src/Instruments/      InterestRateSwap template
-│   │   └── daml.yaml
-│   ├── templates/                Package: derive-templates
+│   ├── instruments/               Package: derive-instruments (removed from build deps)
+│   │   └── src/Instruments/       InterestRateSwap template
+│   ├── templates/                 Package: derive-templates
 │   │   ├── src/
-│   │   │   ├── Templates/        Trade, Margin, Novation, Disclosure contracts
-│   │   │   └── Tests/            Daml Script tests (incl. negative-authorization)
+│   │   │   ├── Templates/         Trade, Margin, Novation, Disclosure contracts
+│   │   │   └── Tests/             Daml Script tests (incl. negative-authorization)
 │   │   └── daml.yaml
-│   └── dpm.json                  Multi-package build config
+│   └── dpm.json                   Multi-package build config
 ├── scripts/
-│   ├── lint-capabilities.mjs     Tauri capability Poka-Yoke check
-│   └── audit-privacy-mapping.mjs Signatory/observer/disclosure audit
-├── tests/e2e/                    E2E test specs
-├── ADRs/                         Architecture Decision Records
-└── openapi/                      JSON Ledger API v2 OpenAPI spec
+│   └── audit-privacy-mapping.mjs  Signatory/observer/disclosure audit
+├── ADRs/                          Architecture Decision Records
+└── .env.example                   Environment variable template
 ```
 
 ## Getting Started
@@ -112,15 +104,20 @@ derive/
 ### Prerequisites
 
 - **Node.js** >= 22
-- **Rust** >= 1.77 (stable)
 - **dpm CLI** (Digital Asset Package Manager) — Canton SDK 3.4.11
 - **Java** >= 11 (required for `dpm test` / Daml Sandbox)
-- **System dependencies** (Linux):
-  ```bash
-  sudo apt install pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libssl-dev
-  ```
 
-### Install & Run (Frontend)
+### Env Variables
+
+Copy `.env.example` to `.env.local` and fill in:
+
+```
+CANTON_LEDGER_API_URL=https://ledger-api.validator.devnet.sandbox.fivenorth.io
+CANTON_PACKAGE_ID=<package-id from dpm codegen-js>
+CANTON_VALIDATOR_NAME=5n sandbox
+```
+
+### Install & Run
 
 ```bash
 npm install
@@ -151,13 +148,14 @@ cd daml
 dpm test
 ```
 
-### Rust IPC Layer
+### Codegen
 
 ```bash
-cd src-tauri
-cargo check
-cargo clippy -- -D warnings
+cd daml
+dpm codegen-js
 ```
+
+Output in `lib/daml/generated/`.
 
 ## Non-Negotiables
 
@@ -166,19 +164,19 @@ cargo clippy -- -D warnings
 3. **Never** store private key material outside the Stronghold vault or Wallet Gateway boundary
 4. **Never** vet a DAR without 100% `dpm test` pass (including negative-authorization suite)
 5. **Never** reintroduce `@daml/ledger` or `@daml/react` (target removed JSON Ledger API v1)
-6. **Never** weaken the Tauri CSP or capability model without security review
 
 ## Verification
 
 | Check | Command |
 |---|---|
 | TypeScript strict check | `npx tsc --strict --noEmit` |
-| Rust lint | `cargo clippy -- -D warnings` |
 | Daml build | `dpm build` |
 | Daml tests | `dpm test` |
-| Capabilities lint | `node scripts/lint-capabilities.mjs` |
 | Privacy mapping audit | `node scripts/audit-privacy-mapping.mjs` |
-| Supply chain audit | `cargo audit && npm audit --audit-level=high` |
+
+## Auth Note
+
+The Canton DevNet JSON Ledger API requires OIDC JWT authentication. The app does not yet include a client-side auth flow — party IDs are provided manually via the Connect dialog. A `CANTON_ACCESS_TOKEN` env var or device-code OIDC flow will be added in a follow-up.
 
 ## License
 
