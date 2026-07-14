@@ -154,10 +154,10 @@ export const ipc = {
         body: JSON.stringify({ actAs: [partyId], role }),
       });
     },
-    complete: (input: { request_id: string }) =>
+    complete: (input: { request_id: string; parties: string[] }) =>
       apiFetch<{ success: boolean; status: string }>(`/api/novation/${input.request_id}/complete`, {
         method: "POST",
-        body: JSON.stringify({ actAs: [_partyId] }),
+        body: JSON.stringify({ actAs: input.parties }),
       }),
     list: () =>
       apiFetch<{ success: boolean; novationRequests: { contractId: string; createArguments: Record<string, unknown> }[] }>(`/api/novation/list?party=${_partyId}`)

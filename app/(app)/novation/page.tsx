@@ -25,9 +25,9 @@ export default function NovationPage() {
     }
   };
 
-  const handleComplete = async (requestId: string) => {
+  const handleComplete = async (requestId: string, parties: string[]) => {
     try {
-      await ipc.novation.complete({ request_id: requestId });
+      await ipc.novation.complete({ request_id: requestId, parties });
       refetch();
     } catch (err) {
       console.error("Failed to complete novation:", err);
@@ -120,7 +120,7 @@ export default function NovationPage() {
                         {req.remaining_consented && req.incoming_consented && req.status !== "completed" && (
                           <Button
                             size="sm"
-                            onClick={() => handleComplete(req.request_id)}
+                            onClick={() => handleComplete(req.request_id, [req.outgoing_dealer, req.remaining_dealer, req.incoming_dealer])}
                           >
                             Complete
                           </Button>

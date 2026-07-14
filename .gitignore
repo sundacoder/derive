@@ -36,6 +36,9 @@ yarn-error.log*
 .env.*.local
 !.env.example
 
+# daml build artifacts
+daml/**/.daml/
+
 # vercel
 .vercel
 

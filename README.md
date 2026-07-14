@@ -56,6 +56,7 @@ DERIVE is a web application for confidential bilateral derivatives trade affirma
 
 ```
 derive/
+├── middleware.ts                  Party allowlist guard (X-Party-Id validation, 403 on reject)
 ├── app/
 │   ├── (app)/                     Route group (authenticated pages)
 │   │   ├── trade/                 Trade affirmation UI
@@ -79,6 +80,9 @@ derive/
 │   ├── canton/
 │   │   ├── client.ts              Canton Ledger API v2 client (submitCreate, submitExercise, queryContracts)
 │   │   └── config.ts              Env-var-backed template ID constants
+│   ├── config/
+│   │   ├── allowlist.ts           Party allowlist (hardcoded defaults + env override)
+│   │   └── flows.ts               Nav/dashboard config single source of truth
 │   ├── types/                     Shared TypeScript types & Zod schemas
 │   ├── stores/                    Zustand stores (wallet, app)
 │   ├── daml/generated/            dpm codegen-js output
@@ -93,6 +97,10 @@ derive/
 │   │   │   └── Tests/             Daml Script tests (incl. negative-authorization)
 │   │   └── daml.yaml
 │   └── dpm.json                   Multi-package build config
+├── tests/
+│   ├── canton-client-auth.test.ts Auth header & 401 propagation tests
+│   ├── error-propagation.test.ts  Error shape handling tests
+│   └── e2e/                       Playwright E2E tests (scaffolded, requires @playwright/test)
 ├── scripts/
 │   └── audit-privacy-mapping.mjs  Signatory/observer/disclosure audit
 ├── ADRs/                          Architecture Decision Records
@@ -170,13 +178,16 @@ Output in `lib/daml/generated/`.
 | Check | Command |
 |---|---|
 | TypeScript strict check | `npx tsc --strict --noEmit` |
+| Unit tests | `npx vitest run` |
 | Daml build | `dpm build` |
 | Daml tests | `dpm test` |
 | Privacy mapping audit | `node scripts/audit-privacy-mapping.mjs` |
 
-## Auth Note
+## Security
 
-The Canton DevNet JSON Ledger API requires OIDC JWT authentication. The app does not yet include a client-side auth flow — party IDs are provided manually via the Connect dialog. A `CANTON_ACCESS_TOKEN` env var or device-code OIDC flow will be added in a follow-up.
+- **Party allowlist**: Only 3 hardcoded Party IDs are authorized to connect. The `middleware.ts` guard rejects unauthorized `X-Party-Id` headers with 403 on all `/api/*` routes. The `ConnectWalletDialog` also validates client-side before allowing connection.
+- **Canton Ledger API**: All commands go through `lib/canton/client.ts` which injects `Authorization: Bearer` when `CANTON_ACCESS_TOKEN` is set. Token must be obtained via Authentik OIDC device-code flow against `auth.sandbox.fivenorth.io`.
+- **Template authorization**: Daml contracts enforce multi-party consent at the ledger level. Every consuming choice on a multi-signatory contract requires the full set of controllers to authorize.
 
 ## License
 

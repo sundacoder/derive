@@ -5,40 +5,37 @@ All notable changes to DERIVE are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] — 2026-07-13
+## [0.2.1] — 2026-07-14
 
 ### Added
 
-#### Next.js API Routes (Tauri Replacement)
-- **16 Route Handlers** under `app/api/` — trade propose/accept/list/accept-novation, margin demand/post/dispute/list, novation request/countersign/complete/list, disclosure publish/list, valuation snapshot
-- **Shared Canton ledger client** (`lib/canton/client.ts`) — `submitCreate`, `submitExercise`, `queryContracts` against JSON Ledger API v2
-- **Env-var-backed config** (`lib/canton/config.ts`) — template ID constants driven by `CANTON_PACKAGE_ID`
-- **`.env.example`** — template for required environment variables
+- **Party allowlist** (`lib/config/allowlist.ts`) — single source of truth for 3 authorized parties; env var `ALLOWED_PARTY_IDS` overrides hardcoded defaults
+- **Server-side middleware guard** (`middleware.ts`) — validates `X-Party-Id` header against allowlist on every `/api/*` request; returns 403 for unauthorized parties
+- **Client-side allowlist validation** in `ConnectWalletDialog.tsx` — rejects unauthorized Party IDs at connect-time with inline error feedback; shows truncated list of authorized parties
+- **Dashboard shell** (`app/(app)/page.tsx`) — 5 stat cards + 4 action cards with empty-state CTAs
+- **Persistent sidebar nav** (`components/layout/AppNav.tsx`) — driven by `lib/config/flows.ts` single source of truth
+- **Auth header support** in `lib/canton/client.ts` — `buildHeaders()` injects `Authorization: Bearer` on all 3 functions when `CANTON_ACCESS_TOKEN` is set
+- **Unit tests** — 14 tests covering auth header propagation (`tests/canton-client-auth.test.ts`) and error propagation (`tests/error-propagation.test.ts`)
 
-#### Canton DevNet Integration
-- DAR (`derive-templates-0.1.0.dar`) built and deployed to Seaport 5n sandbox
-- `dpm codegen-js` output committed under `lib/daml/generated/`
-- Ledger API URL configured: `https://ledger-api.validator.devnet.sandbox.fivenorth.io`
+### Fixed
+
+- **Novation complete bug** — `ipc.novation.complete()` previously sent `actAs: [_partyId]` (1 party), but Daml choice `CompleteNovation` requires all 3 signatories. Fixed to accept `parties: string[]` and send all 3. Updated page component to pass parties from request data.
+- **Dashboard page** — removed orphaned `app/page.tsx`; content merged into `app/(app)/page.tsx`
+- **Error propagation** in `ProposeTradeDialog.tsx` — catch block now handles `Error` instances, `{code, message}` plain objects, and unknown shapes
 
 ### Changed
 
-- **Architecture pivot**: Tauri desktop → Next.js API Routes + Vercel deployment (hackathon track)
-- `lib/ipc.ts` rewritten — `@tauri-apps/api` `invoke()` replaced with `fetch()` to API routes; interface preserved so all frontend components work unchanged
-- `next.config.ts` — static export (`output: "export"`) removed; dynamic Node.js hosting enabled for API routes
-- `ConnectWalletDialog.tsx` — Stronghold button replaced with Party ID text-field paste flow
-- Daml contract templates deployed on Seaport: `DerivativeTrade` and `TradeProposal` active on ledger
-
-### Removed
-
-- **Tauri Rust backend** (`src-tauri/`) — no longer on critical path; all IPC via HTTP
-- **Tauri dependencies** (`@tauri-apps/api`, `@tauri-apps/plugin-store`, `@tauri-apps/plugin-stronghold`) remain in `package.json` but unused
-- **Rust build prerequisites** — `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, etc. no longer required
+- `ConnectWalletDialog.tsx` — shows inline "Authorized party" / "Not on allowlist" feedback + truncated party list
+- `.env.example` — added `ALLOWED_PARTY_IDS` and `WALLET_GATEWAY_URL` documentation
 
 ### Known Issues
 
-- Ledger API requires OIDC JWT auth (Authentik) — `client.ts` does not yet send `Authorization` header
-- `dpm test` requires Java JVM — cannot run Daml Script tests locally
-- No Vercel project configured yet for deployment target
+- No `CANTON_ACCESS_TOKEN` set — every ledger command returns 401. Must be obtained via Authentik device-code flow against `auth.sandbox.fivenorth.io`
+- Wallet connect is a stub — `ipc.wallet.connect()` stores Party ID in memory only; no real CIP-103 `@canton-network/dapp-sdk` integration
+- `dpm test` requires Java JVM — cannot run Daml Script tests locally (pre-existing)
+- E2E Playwright tests scaffolded but cannot run — `@playwright/test` not installed (pre-existing)
+
+## [0.2.0] — 2026-07-13
 
 ## [0.1.1] — 2026-07-11
 
