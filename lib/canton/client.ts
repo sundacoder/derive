@@ -1,4 +1,4 @@
-import { CANTON_LEDGER_API_URL } from "./config";
+import { CANTON_LEDGER_API_URL, CANTON_ACCESS_TOKEN } from "./config";
 
 export interface CantonCommandResult {
   status: number;
@@ -40,6 +40,14 @@ export type LedgerCommand =
       choiceArgument: Record<string, unknown>;
     };
 
+function buildHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (CANTON_ACCESS_TOKEN) {
+    headers["Authorization"] = `Bearer ${CANTON_ACCESS_TOKEN}`;
+  }
+  return headers;
+}
+
 function buildCommandId(): string {
   return `derive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -57,7 +65,7 @@ export async function submitCreate(
 
   const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/commands/submit-and-wait`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -85,7 +93,7 @@ export async function submitExercise(
 
   const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/commands/submit-and-wait`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(),
     body: JSON.stringify(body),
   });
 
@@ -109,7 +117,7 @@ export async function queryContracts(
 
   const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/query`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(),
     body: JSON.stringify(body),
   });
 

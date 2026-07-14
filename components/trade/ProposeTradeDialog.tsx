@@ -40,8 +40,14 @@ export function ProposeTradeDialog({ onProposed }: ProposeTradeDialogProps) {
       setNotional("");
       setFixedRate("");
       onProposed();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to propose trade");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (typeof err === "object" && err !== null && "message" in err) {
+        setError(String((err as { message: unknown }).message));
+      } else {
+        setError("Failed to propose trade");
+      }
     } finally {
       setLoading(false);
     }

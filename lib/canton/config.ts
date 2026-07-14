@@ -11,6 +11,8 @@ function requireEnv(name: string): string {
 export const CANTON_LEDGER_API_URL = requireEnv("CANTON_LEDGER_API_URL");
 export const CANTON_PACKAGE_ID = requireEnv("CANTON_PACKAGE_ID");
 
+export const CANTON_ACCESS_TOKEN = process.env.CANTON_ACCESS_TOKEN ?? null;
+
 export const TEMPLATE_IDS = {
   TradeProposal: `${CANTON_PACKAGE_ID}:Templates.Trade:TradeProposal`,
   DerivativeTrade: `${CANTON_PACKAGE_ID}:Templates.Trade:DerivativeTrade`,
