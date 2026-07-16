@@ -78,8 +78,10 @@ derive/
 │   └── ui/                        shadcn/ui primitives
 ├── lib/
 │   ├── canton/
-│   │   ├── client.ts              Canton Ledger API v2 client (submitCreate, submitExercise, queryContracts)
-│   │   └── config.ts              Env-var-backed template ID constants
+│   │   ├── auth.ts                 OAuth2 client-credentials token management (auto-refresh)
+│   │   ├── authorization.ts        Server-side party authorization (X-Party-Id validation)
+│   │   ├── client.ts               Canton Ledger API v2 client (submitCreate, submitExercise, queryContracts, lookupContract, getLedgerEnd)
+│   │   └── config.ts               Env-var-backed template ID constants
 │   ├── config/
 │   │   ├── allowlist.ts           Party allowlist (hardcoded defaults + env override)
 │   │   └── flows.ts               Nav/dashboard config single source of truth
@@ -123,6 +125,10 @@ Copy `.env.example` to `.env.local` and fill in:
 CANTON_LEDGER_API_URL=https://ledger-api.validator.devnet.sandbox.fivenorth.io
 CANTON_PACKAGE_ID=<package-id from dpm codegen-js>
 CANTON_VALIDATOR_NAME=5n sandbox
+CANTON_CLIENT_ID=validator-devnet-m2m
+CANTON_CLIENT_SECRET=<obtain via Authentik OIDC client credentials flow>
+CANTON_AUDIENCE=validator-devnet-m2m
+CANTON_SCOPE=daml_ledger_api
 ```
 
 ### Install & Run
@@ -176,17 +182,18 @@ Output in `lib/daml/generated/`.
 ## Verification
 
 | Check | Command |
-|---|---|
+|---|---|---|
 | TypeScript strict check | `npx tsc --strict --noEmit` |
 | Unit tests | `npx vitest run` |
-| Daml build | `dpm build` |
-| Daml tests | `dpm test` |
+| Daml build | `dpm build --all` |
+| Daml tests | `cd daml/templates && dpm test` |
 | Privacy mapping audit | `node scripts/audit-privacy-mapping.mjs` |
 
 ## Security
 
 - **Party allowlist**: Only 3 hardcoded Party IDs are authorized to connect. The `middleware.ts` guard rejects unauthorized `X-Party-Id` headers with 403 on all `/api/*` routes. The `ConnectWalletDialog` also validates client-side before allowing connection.
-- **Canton Ledger API**: All commands go through `lib/canton/client.ts` which injects `Authorization: Bearer` when `CANTON_ACCESS_TOKEN` is set. Token must be obtained via Authentik OIDC device-code flow against `auth.sandbox.fivenorth.io`.
+- **Server-side party authorization**: Every API route handler validates that the authenticated `X-Party-Id` matches the `actAs`/`proposer`/`acceptor` fields in the request body. Margin Post/Dispute routes additionally query the ACS to confirm the caller is the `calledDealer`.
+- **Canton Ledger API auth**: All ledger commands authenticate via OAuth2 client-credentials flow (`lib/canton/auth.ts`). Tokens are obtained from `auth.sandbox.fivenorth.io` and automatically refreshed before 8-hour expiry.
 - **Template authorization**: Daml contracts enforce multi-party consent at the ledger level. Every consuming choice on a multi-signatory contract requires the full set of controllers to authorize.
 
 ## License

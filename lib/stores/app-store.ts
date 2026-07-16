@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type ActiveView = "dashboard" | "trade" | "margin" | "novation" | "disclosure";
+export type ActiveView = "dashboard" | "trade" | "margin" | "novation" | "disclosure";
 
 interface AppState {
   activeView: ActiveView;

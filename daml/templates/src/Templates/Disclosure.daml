@@ -46,6 +46,7 @@ template RegulatoryDisclosureRequest
         counterpartyLeis: [Text]
         tradeCount: Int
         totalGrossNotional: Decimal
+        generatedAt: Date
         schemaVersion: Text
       controller platformOperator
       do
@@ -60,7 +61,7 @@ template RegulatoryDisclosureRequest
           counterpartyLeis
           tradeCount
           totalGrossNotional
-          generatedAt = date 2026 Jul 10
+          generatedAt
           schemaVersion
 
     choice CancelRequest: ()

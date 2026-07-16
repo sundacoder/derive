@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitExercise } from "@/lib/canton/client";
 import { TEMPLATE_IDS } from "@/lib/canton/config";
+import { validatePartyAuthorization } from "@/lib/canton/authorization";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ cid: string }> }) {
   try {
@@ -12,13 +13,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cid
       return NextResponse.json({ success: false, error: "actAs must include all three dealers" }, { status: 400 });
     }
 
+    const authError = validatePartyAuthorization(req, actAs);
+    if (authError) {
+      return NextResponse.json({ success: false, error: authError }, { status: 403 });
+    }
+
     const result = await submitExercise(actAs, TEMPLATE_IDS.NovationRequest, cid, "CompleteNovation", {});
 
     if (result.error) {
       return NextResponse.json({ success: false, error: result.error, status: result.status }, { status: result.status });
     }
 
-    return NextResponse.json({ success: true, status: "completed", events: result.events });
+    return NextResponse.json({ success: true, status: "completed", update: result.update });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }

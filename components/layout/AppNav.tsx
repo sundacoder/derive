@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useWalletStore } from "@/lib/stores/wallet-store";
 import { NAV_ITEMS } from "@/lib/config/flows";
+import type { ActiveView } from "@/lib/stores/app-store";
 
 export function AppNav() {
   const activeView = useAppStore((s) => s.activeView);
@@ -24,7 +25,7 @@ export function AppNav() {
             <Link
               key={item.id}
               href={item.href}
-              onClick={() => setActiveView(item.id as any)}
+              onClick={() => setActiveView(item.id as ActiveView)}
               className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                 activeView === item.id
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"

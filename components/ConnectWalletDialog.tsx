@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isPartyAllowed, getAllowedParties } from "@/lib/config/allowlist";
 
-interface ConnectWalletDialogProps {
+export interface ConnectWalletDialogProps {
   onConnect: (partyId: string) => void;
 }
 
 export function ConnectWalletDialog({ onConnect }: ConnectWalletDialogProps) {
   const [partyId, setPartyId] = useState("");
+  const [participantUrl, setParticipantUrl] = useState(
+    process.env.NEXT_PUBLIC_CANTON_LEDGER_API_URL ?? "https://ledger-api.validator.devnet.sandbox.fivenorth.io"
+  );
   const [open, setOpen] = useState(false);
 
   const trimmed = partyId.trim();

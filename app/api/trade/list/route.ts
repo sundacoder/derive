@@ -10,14 +10,21 @@ export async function GET(req: NextRequest) {
     }
 
     const [trades, proposals] = await Promise.all([
-      queryContracts([party], { templateId: TEMPLATE_IDS.DerivativeTrade }),
-      queryContracts([party], { templateId: TEMPLATE_IDS.TradeProposal }),
+      queryContracts([party], [TEMPLATE_IDS.DerivativeTrade]),
+      queryContracts([party], [TEMPLATE_IDS.TradeProposal]),
     ]);
+
+    if (trades.error) {
+      return NextResponse.json({ success: false, error: trades.error, status: trades.status }, { status: trades.status });
+    }
+    if (proposals.error) {
+      return NextResponse.json({ success: false, error: proposals.error, status: proposals.status }, { status: proposals.status });
+    }
 
     return NextResponse.json({
       success: true,
-      trades: trades.events ?? [],
-      proposals: proposals.events ?? [],
+      trades: trades.contracts ?? [],
+      proposals: proposals.contracts ?? [],
     });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });

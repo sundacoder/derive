@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitCreate } from "@/lib/canton/client";
 import { TEMPLATE_IDS } from "@/lib/canton/config";
+import { validatePartyAuthorization } from "@/lib/canton/authorization";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,11 @@ export async function POST(req: NextRequest) {
 
     if (!callingDealer || !calledDealer) {
       return NextResponse.json({ success: false, error: "callingDealer and calledDealer are required" }, { status: 400 });
+    }
+
+    const authError = validatePartyAuthorization(req, callingDealer);
+    if (authError) {
+      return NextResponse.json({ success: false, error: authError }, { status: 403 });
     }
 
     const result = await submitCreate([callingDealer, calledDealer], TEMPLATE_IDS.MarginCallDemand, {
@@ -27,8 +33,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: result.error, status: result.status }, { status: result.status });
     }
 
-    const created = result.events?.find((e) => e.eventType === "created");
-    return NextResponse.json({ success: true, demand_id: created?.contractId ?? null, status: "demanded", events: result.events });
+    const created = result.contracts?.[0];
+    return NextResponse.json({ success: true, demand_id: created?.contractId ?? null, status: "demanded", update: result.update });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }

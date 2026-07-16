@@ -5,7 +5,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const templatesDir = resolve(__dirname, "../daml/src/Templates");
+const templatesDir = resolve(__dirname, "../daml/templates/src/Templates");
 
 const specSection34 = {
   tradeLevelTemplates: ["DerivativeTrade", "MarginCallDemand", "NovationRequest"],

@@ -68,7 +68,7 @@ describe("IPC real error shape", () => {
 
     // Set partyId so the ipc.trade.propose function uses it in the body
     // @ts-expect-error accessing internal state for test
-    ipc.wallet.connect({ wallet_provider: "test", participant_url: "Alice" });
+    ipc.wallet.connect({ wallet_provider: "test", participant_url: "https://ledger.example.com", party_id: "Alice" });
 
     try {
       await ipc.trade.propose({
@@ -94,7 +94,7 @@ describe("IPC real error shape", () => {
     } as Response);
 
     // @ts-expect-error accessing internal state for test
-    ipc.wallet.connect({ wallet_provider: "test", participant_url: "Alice" });
+    ipc.wallet.connect({ wallet_provider: "test", participant_url: "https://ledger.example.com", party_id: "Alice" });
 
     try {
       await ipc.trade.propose({

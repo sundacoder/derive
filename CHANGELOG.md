@@ -5,6 +5,55 @@ All notable changes to DERIVE are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-07-16
+
+### Added
+
+- **OAuth2 client-credentials auth module** (`lib/canton/auth.ts`) — automatic token exchange and refresh via `https://auth.sandbox.fivenorth.io/application/o/token/` with 8-hour expiry; singleton pattern prevents concurrent refresh requests; env vars `CANTON_CLIENT_ID`, `CANTON_CLIENT_SECRET`, `CANTON_AUDIENCE`, `CANTON_SCOPE`
+- **Server-side party authorization** (`lib/canton/authorization.ts`) — validates `X-Party-Id` header against all requested `actAs`/`proposer`/`acceptor` body fields in every API route handler; defense-in-depth beyond the `middleware.ts` allowlist
+- **Margin Post/Dispute contract validation** — API routes now query the ACS to confirm the caller is the `calledDealer` before forwarding the exercise command
+- **`lookupContract` and `getLedgerEnd`** — new client helpers for single-contract lookup and ledger-end synchronization
+- **Auth module unit tests** — token caching, token refresh, and correct request shape verification
+
+### Fixed
+
+- **Ledger API v2 request shape mismatch** — `lib/canton/client.ts` now sends `parties` (not `actAs`), singular `command` with `create`/`exercise` sub-objects (not flat `commandType`), and `/v2/contracts/search` (not `/v2/query`). All 4 HIGH-severity wiring defects resolved.
+- **RegulatoryDisclosure.Fulfill hardcoded date** — `generatedAt` is now a choice argument instead of `date 2026 Jul 10`
+- **Privacy audit script path** — `scripts/audit-privacy-mapping.mjs` now points to `daml/templates/src/Templates` (was `daml/src/Templates`)
+- **`ipc.novation.countersign` dead code** — removed unreachable `else` branch that always evaluated to `_partyId`
+- **`IpcError` extends `Error`** — proper stack traces preserved; `ipc.ts` throws `IpcError` instead of plain objects
+- **`trade/[cid]/route.ts`** — GET handler now performs a real `lookupContract` call instead of returning a stub
+- **`any` types in `ipc.ts`** — replaced 21 `as any` casts with typed `getPayloadValue` helper using `Record<string, unknown>`
+- **`AppNav.tsx` lint error** — exported `ActiveView` type from `app-store.ts` and imported it instead of using `as any`
+- **Unused `Button` imports** — removed from `disclosure/page.tsx` and `trade/page.tsx`
+- **Wallet connect naming** — separate `party_id` from `participant_url` in `ipc.wallet.connect()` input
+
+### Changed
+
+- `lib/canton/config.ts` — removed `CANTON_ACCESS_TOKEN` env var; token management delegated to `lib/canton/auth.ts` via OAuth2 client credentials
+- `lib/canton/client.ts` — complete rewrite to match Canton JSON Ledger API v2 protocol; `submitCreate`, `submitExercise`, `queryContracts` all use correct request/response shapes
+- `app/api/*/route.ts` — all 12 API route handlers updated to use new client signatures and `validatePartyAuthorization`
+- `lib/ipc.ts` — all `.map()` calls use `payload` field instead of `createArguments` field from contract data
+- `app/(app)/page.tsx` — `handleConnect` passes `party_id` separately from `participant_url`
+- `components/ConnectWalletDialog.tsx` — accepts optional `participantUrl` input for the ledger endpoint
+- `tests/canton-client-auth.test.ts` — rewritten to test new client API shapes and auth module
+- `tests/error-propagation.test.ts` — updated to pass `party_id` in `wallet.connect` calls
+- `.env.example` — replaced `CANTON_ACCESS_TOKEN` with `CANTON_CLIENT_ID`, `CANTON_CLIENT_SECRET`, `CANTON_AUDIENCE`, `CANTON_SCOPE`
+
+### Removed
+
+- `CANTON_ACCESS_TOKEN` singleton env var — replaced by OAuth2 client-credentials flow with automatic refresh
+
+### Known Issues
+
+- DAR not yet deployed to Seaport DevNet — Deploy `daml/templates/.daml/dist/derive-templates-0.1.0.dar` via the Seaport admin interface
+- `CANTON_PACKAGE_ID` in `.env.example` is a placeholder — must be updated to match the deployed package hash
+- `CANTON_CLIENT_SECRET` must be set in Vercel environment variables (not committed to repo)
+- Wallet connect remains a stub — no real CIP-103 `@canton-network/dapp-sdk` integration
+- `dpm test` requires Java JVM — cannot run Daml Script tests locally
+- E2E Playwright tests scaffolded but cannot run — `@playwright/test` not installed
+- Tauri Rust layer is dormant — requires `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` system libraries
+
 ## [0.2.1] — 2026-07-14
 
 ### Added

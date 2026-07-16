@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitCreate } from "@/lib/canton/client";
 import { TEMPLATE_IDS } from "@/lib/canton/config";
+import { validatePartyAuthorization } from "@/lib/canton/authorization";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,12 @@ export async function POST(req: NextRequest) {
 
     if (!proposer || !acceptor) {
       return NextResponse.json({ success: false, error: "proposer and acceptor are required" }, { status: 400 });
+    }
+
+    // Validate that the authenticated party is authorized to act as proposer
+    const authError = validatePartyAuthorization(req, proposer);
+    if (authError) {
+      return NextResponse.json({ success: false, error: authError }, { status: 403 });
     }
 
     const result = await submitCreate([proposer], TEMPLATE_IDS.TradeProposal, {
@@ -25,12 +32,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: result.error, status: result.status }, { status: result.status });
     }
 
-    const created = result.events?.find((e) => e.eventType === "created");
+    const created = result.contracts?.[0];
     return NextResponse.json({
       success: true,
       proposal_id: created?.contractId ?? null,
       status: "pending",
-      events: result.events,
+      update: result.update,
     });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });

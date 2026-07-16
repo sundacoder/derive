@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitCreate } from "@/lib/canton/client";
 import { TEMPLATE_IDS } from "@/lib/canton/config";
+import { validatePartyAuthorization } from "@/lib/canton/authorization";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,11 @@ export async function POST(req: NextRequest) {
 
     if (!regulator) {
       return NextResponse.json({ success: false, error: "regulator is required" }, { status: 400 });
+    }
+
+    const authError = validatePartyAuthorization(req, regulator);
+    if (authError) {
+      return NextResponse.json({ success: false, error: authError }, { status: 403 });
     }
 
     const result = await submitCreate([regulator], TEMPLATE_IDS.RegulatoryDisclosure, {
@@ -30,8 +36,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: result.error, status: result.status }, { status: result.status });
     }
 
-    const created = result.events?.find((e) => e.eventType === "created");
-    return NextResponse.json({ success: true, report_id: created?.contractId ?? null, events: result.events });
+    const created = result.contracts?.[0];
+    return NextResponse.json({ success: true, report_id: created?.contractId ?? null, update: result.update });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }

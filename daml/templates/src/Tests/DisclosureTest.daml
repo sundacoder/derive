@@ -62,6 +62,7 @@ testDisclosureRequestFlow = do
       counterpartyLeis = ["LEI-ALICE", "LEI-BOB"]
       tradeCount = 2
       totalGrossNotional = 2500000.0
+      generatedAt = date 2026 Jul 10
       schemaVersion = "1.0.0"
 
   disclosure <- submit regulator do

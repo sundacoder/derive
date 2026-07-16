@@ -9,8 +9,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "party query param required" }, { status: 400 });
     }
 
-    const result = await queryContracts([party], { templateId: TEMPLATE_IDS.RegulatoryDisclosure });
-    return NextResponse.json({ success: true, disclosures: result.events ?? [] });
+    const result = await queryContracts([party], [TEMPLATE_IDS.RegulatoryDisclosure]);
+    
+    if (result.error) {
+      return NextResponse.json({ success: false, error: result.error, status: result.status }, { status: result.status });
+    }
+
+    return NextResponse.json({ success: true, disclosures: result.contracts ?? [] });
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }

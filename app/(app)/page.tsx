@@ -57,7 +57,8 @@ export default function DashboardPage() {
     try {
       const result = await ipc.wallet.connect({
         wallet_provider: "Seaport DevNet",
-        participant_url: partyId,
+        participant_url: process.env.NEXT_PUBLIC_CANTON_LEDGER_API_URL ?? "https://ledger-api.validator.devnet.sandbox.fivenorth.io",
+        party_id: partyId,
       });
       setConnection({
         connected: true,

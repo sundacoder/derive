@@ -1,19 +1,40 @@
-type CommandError = { code: string; message: string };
+/**
+ * Inter-Process Communication Layer
+ * 
+ * Browser/Vercel mode: makes fetch() calls to Next.js API routes.
+ * This module provides a typed interface between the UI and the backend.
+ */
 
 let _partyId: string | null = null;
 let _participantUrl: string | null = null;
+
+class IpcError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "IpcError";
+    this.code = code;
+  }
+}
+
+function getPayloadValue(payload: Record<string, unknown>, key: string): unknown {
+  return payload[key];
+}
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (_partyId) headers["X-Party-Id"] = _partyId;
 
-  const res = await fetch(url, { ...options, headers: { ...headers, ...(options?.headers as Record<string, string>) } });
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...headers, ...(options?.headers as Record<string, string>) },
+  });
 
   if (!res.ok) {
     const text = await res.text();
     let parsed: { error?: string } = {};
     try { parsed = JSON.parse(text); } catch {}
-    throw { code: "API_ERROR", message: parsed.error ?? `HTTP ${res.status}: ${text}` } as CommandError;
+    throw new IpcError("API_ERROR", parsed.error ?? `HTTP ${res.status}: ${text}`);
   }
 
   return res.json();
@@ -21,8 +42,8 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const ipc = {
   wallet: {
-    connect: async (input: { wallet_provider: string; participant_url: string }) => {
-      _partyId = input.participant_url;
+    connect: async (input: { wallet_provider: string; participant_url: string; party_id: string }) => {
+      _partyId = input.party_id;
       _participantUrl = input.participant_url;
       return { connected: true, party_hint: _partyId };
     },
@@ -63,26 +84,26 @@ export const ipc = {
         body: JSON.stringify({ acceptor: _partyId }),
       }),
     list: () =>
-      apiFetch<{ success: boolean; trades: { contractId: string; createArguments: Record<string, unknown> }[] }>(`/api/trade/list?party=${_partyId}`)
+      apiFetch<{ success: boolean; trades: { contractId: string; payload: Record<string, unknown> }[] }>(`/api/trade/list?party=${_partyId}`)
         .then((r) =>
           (r.trades ?? []).map((t) => ({
             trade_id: t.contractId ?? "",
-            dealer_a: String((t.createArguments as any)?.dealerA ?? ""),
-            dealer_b: String((t.createArguments as any)?.dealerB ?? ""),
-            notional: Number((t.createArguments as any)?.notional ?? 0),
-            status: "active",
+            dealer_a: String(getPayloadValue(t.payload, "dealerA") ?? ""),
+            dealer_b: String(getPayloadValue(t.payload, "dealerB") ?? ""),
+            notional: Number(getPayloadValue(t.payload, "notional") ?? 0),
+            status: "active" as const,
           }))
         ),
     proposals: () =>
-      apiFetch<{ success: boolean; proposals: { contractId: string; createArguments: Record<string, unknown> }[] }>(`/api/trade/list?party=${_partyId}`)
+      apiFetch<{ success: boolean; proposals: { contractId: string; payload: Record<string, unknown> }[] }>(`/api/trade/list?party=${_partyId}`)
         .then((r) =>
-          ((r as any).proposals ?? []).map((p: any) => ({
+          (r.proposals ?? []).map((p) => ({
             proposal_id: p.contractId ?? "",
-            proposer: String(p.createArguments?.proposer ?? ""),
-            acceptor: String(p.createArguments?.acceptor ?? ""),
-            notional: Number(p.createArguments?.notional ?? 0),
-            fixed_rate: Number(p.createArguments?.fixedRate ?? 0),
-            status: "pending",
+            proposer: String(getPayloadValue(p.payload, "proposer") ?? ""),
+            acceptor: String(getPayloadValue(p.payload, "acceptor") ?? ""),
+            notional: Number(getPayloadValue(p.payload, "notional") ?? 0),
+            fixed_rate: Number(getPayloadValue(p.payload, "fixedRate") ?? 0),
+            status: "pending" as const,
           }))
         ),
   },
@@ -116,15 +137,15 @@ export const ipc = {
         body: JSON.stringify({ actAs: [_partyId] }),
       }),
     list: () =>
-      apiFetch<{ success: boolean; marginCalls: { contractId: string; createArguments: Record<string, unknown> }[] }>(`/api/margin/list?party=${_partyId}`)
+      apiFetch<{ success: boolean; marginCalls: { contractId: string; payload: Record<string, unknown> }[] }>(`/api/margin/list?party=${_partyId}`)
         .then((r) =>
           (r.marginCalls ?? []).map((m) => ({
             demand_id: m.contractId ?? "",
-            calling_dealer: String((m.createArguments as any)?.callingDealer ?? ""),
-            called_dealer: String((m.createArguments as any)?.calledDealer ?? ""),
-            amount_required: Number((m.createArguments as any)?.amountRequired ?? 0),
-            posted: Boolean((m.createArguments as any)?.posted ?? false),
-            disputed: Boolean((m.createArguments as any)?.disputed ?? false),
+            calling_dealer: String(getPayloadValue(m.payload, "callingDealer") ?? ""),
+            called_dealer: String(getPayloadValue(m.payload, "calledDealer") ?? ""),
+            amount_required: Number(getPayloadValue(m.payload, "amountRequired") ?? 0),
+            posted: Boolean(getPayloadValue(m.payload, "posted") ?? false),
+            disputed: Boolean(getPayloadValue(m.payload, "disputed") ?? false),
           }))
         ),
   },
@@ -146,31 +167,31 @@ export const ipc = {
           notional: input.notional,
         }),
       }),
-    countersign: (input: { request_id: string; as_party: string }) => {
-      const role = input.as_party === "incoming" ? "incoming" : "remaining";
-      const partyId = role === input.as_party ? _partyId! : input.as_party;
-      return apiFetch<{ success: boolean; request_id: string }>(`/api/novation/${input.request_id}/countersign`, {
+    countersign: (input: { request_id: string; as_party: string }) =>
+      apiFetch<{ success: boolean; request_id: string }>(`/api/novation/${input.request_id}/countersign`, {
         method: "POST",
-        body: JSON.stringify({ actAs: [partyId], role }),
-      });
-    },
+        body: JSON.stringify({
+          actAs: [_partyId!],
+          role: input.as_party === "incoming" ? "incoming" : "remaining",
+        }),
+      }),
     complete: (input: { request_id: string; parties: string[] }) =>
       apiFetch<{ success: boolean; status: string }>(`/api/novation/${input.request_id}/complete`, {
         method: "POST",
         body: JSON.stringify({ actAs: input.parties }),
       }),
     list: () =>
-      apiFetch<{ success: boolean; novationRequests: { contractId: string; createArguments: Record<string, unknown> }[] }>(`/api/novation/list?party=${_partyId}`)
+      apiFetch<{ success: boolean; novationRequests: { contractId: string; payload: Record<string, unknown> }[] }>(`/api/novation/list?party=${_partyId}`)
         .then((r) =>
           (r.novationRequests ?? []).map((n) => ({
             request_id: n.contractId ?? "",
-            outgoing_dealer: String((n.createArguments as any)?.outgoingDealer ?? ""),
-            remaining_dealer: String((n.createArguments as any)?.remainingDealer ?? ""),
-            incoming_dealer: String((n.createArguments as any)?.incomingDealer ?? ""),
-            notional: Number((n.createArguments as any)?.notional ?? 0),
-            remaining_consented: Boolean((n.createArguments as any)?.remainingDealerConsented ?? false),
-            incoming_consented: Boolean((n.createArguments as any)?.incomingDealerConsented ?? false),
-            status: "pending_signatures",
+            outgoing_dealer: String(getPayloadValue(n.payload, "outgoingDealer") ?? ""),
+            remaining_dealer: String(getPayloadValue(n.payload, "remainingDealer") ?? ""),
+            incoming_dealer: String(getPayloadValue(n.payload, "incomingDealer") ?? ""),
+            notional: Number(getPayloadValue(n.payload, "notional") ?? 0),
+            remaining_consented: Boolean(getPayloadValue(n.payload, "remainingDealerConsented") ?? false),
+            incoming_consented: Boolean(getPayloadValue(n.payload, "incomingDealerConsented") ?? false),
+            status: "pending_signatures" as string,
           }))
         ),
   },
@@ -198,15 +219,15 @@ export const ipc = {
         }),
       }),
     list: () =>
-      apiFetch<{ success: boolean; disclosures: { contractId: string; createArguments: Record<string, unknown> }[] }>(`/api/disclosure/list?party=${_partyId}`)
+      apiFetch<{ success: boolean; disclosures: { contractId: string; payload: Record<string, unknown> }[] }>(`/api/disclosure/list?party=${_partyId}`)
         .then((r) =>
           (r.disclosures ?? []).map((d) => ({
             report_id: d.contractId ?? "",
-            notional_bucket: String((d.createArguments as any)?.notionalBucket ?? ""),
-            asset_class: String((d.createArguments as any)?.assetClass ?? ""),
-            trade_count: Number((d.createArguments as any)?.tradeCount ?? 0),
-            total_gross_notional: Number((d.createArguments as any)?.totalGrossNotional ?? 0),
-            generated_at: String((d.createArguments as any)?.generatedAt ?? ""),
+            notional_bucket: String(getPayloadValue(d.payload, "notionalBucket") ?? ""),
+            asset_class: String(getPayloadValue(d.payload, "assetClass") ?? ""),
+            trade_count: Number(getPayloadValue(d.payload, "tradeCount") ?? 0),
+            total_gross_notional: Number(getPayloadValue(d.payload, "totalGrossNotional") ?? 0),
+            generated_at: String(getPayloadValue(d.payload, "generatedAt") ?? ""),
           }))
         ),
   },
