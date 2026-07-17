@@ -155,6 +155,8 @@ dpm build
 
 Output DAR at `daml/templates/.daml/dist/derive-templates-0.1.0.dar`.
 
+A copy of the deployable DAR is committed at `daml/dist/derive-templates-0.1.0.dar` — this is the artifact to upload to Seaport DevNet.
+
 ### Daml Test (requires Java)
 
 ```bash
