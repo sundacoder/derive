@@ -182,7 +182,7 @@ Output in `lib/daml/generated/`.
 ## Verification
 
 | Check | Command |
-|---|---|---|
+|---|---|
 | TypeScript strict check | `npx tsc --strict --noEmit` |
 | Unit tests | `npx vitest run` |
 | Daml build | `dpm build --all` |

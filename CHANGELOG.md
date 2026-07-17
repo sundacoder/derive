@@ -5,6 +5,18 @@ All notable changes to DERIVE are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-07-17
+
+### Fixed
+
+- **`.gitignore` env pattern** — new `.env*` catch-all was re-ignoring `.env.example` (overriding the earlier `!.env.example` exception); exception re-added after the pattern
+- **`package.json` version** — bumped from stale `0.2.0` to match release versioning
+- **README verification table** — malformed 3-column separator on a 2-column table
+
+### Added
+
+- `.kilo/` added to `.gitignore` — local agent plan files may contain credentials and must never be committed
+
 ## [0.3.0] — 2026-07-16
 
 ### Added
