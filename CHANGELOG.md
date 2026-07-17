@@ -5,6 +5,39 @@ All notable changes to DERIVE are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] — 2026-07-17
+
+End-to-end verified against Canton DevNet through the live Vercel deployment: trade
+propose/list/accept, valuation snapshot, margin demand/post/dispute, three-party
+novation request/countersign×2/complete, regulatory disclosure, plus negative
+authorization tests (403 on unknown party and header/body party mismatch).
+
+### Fixed
+
+- **`lib/canton/client.ts` rewritten against the real Canton 3.5 JSON Ledger API v2** (verified live):
+  submits via `/v2/commands/submit-and-wait-for-transaction` (body `{commands: {commands: [{CreateCommand|ExerciseCommand}], commandId, actAs}}`),
+  ACS queries via `GET /v2/state/ledger-end` + `POST /v2/state/active-contracts` (`filtersByParty` with `TemplateFilter`),
+  lookups via `/v2/events/events-by-contract-id` with `eventFormat`. The previous
+  `/v2/contracts/search` and `/v2/contracts/lookup` endpoints do not exist on real participants.
+- **Template references switched to package-name form** (`#derive-templates:Module:Entity`) —
+  required by ACS filters (raw package IDs are rejected there) and upgrade-safe for commands
+- **Disclosure `tradeCount` encoding** — Daml `Int64` must be a JSON string on the wire; numeric value caused `LEDGER_API_INTERNAL_ERROR`
+- **Party allowlist replaced** — the previous 3 hardcoded Party IDs exist on Canton DevNet but are
+  hosted on other participants (`isLocal: false`), so this validator could never `actAs` them.
+  Replaced with 4 freshly allocated local parties (`derive-dealerA/B/C`, `derive-regulator`) with
+  `CanActAs` rights granted to the OIDC M2M ledger user; Vercel `ALLOWED_PARTY_IDS` updated to match
+- **`openapi/json-ledger-api-v2.yaml`** — rewritten to document the real endpoint surface
+
+### Known Issues
+
+- **`DerivativeTrade.AcceptNovation` is structurally broken in the vetted DAR** — the choice creates a
+  new trade signed by `incomingDealer`, but its controllers are only `dealerA, dealerB`, so the ledger
+  always rejects it with `DAML_AUTHORIZATION_ERROR`. Fix requires adding `incomingDealer` as a choice
+  controller and shipping a new DAR — blocked on a full `dpm test` pass (needs Java) per non-negotiable #4.
+  The `NovationRequest` countersign flow works and is the supported novation path.
+- DAR **is** deployed and vetted on the 5N sandbox participant (package `4ac3675a…`) — the 0.3.0 note
+  saying otherwise is obsolete
+
 ## [0.3.1] — 2026-07-17
 
 ### Fixed

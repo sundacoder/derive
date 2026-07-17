@@ -1,7 +1,11 @@
+// Local parties on the 5N sandbox validator, allocated for DERIVE. The
+// ledger user behind CANTON_CLIENT_ID holds CanActAs rights on each; parties
+// hosted on other participants cannot be used (actAs would be rejected).
 const DEFAULT_ALLOWED: string[] = [
-  "de1bf9dc70e28f881b581f24fd7fd703::1220d8416df6cd7f3e0527a6ced9c91010488860dfc4a34f8a093eebc060eb47b295",
-  "253cb66316f7ed1202d91ae25d7d54a3::12209bbbd56c433cff2d42ec95cfb57f81b0e6fbc0a7e9b5bb9125b4cca3df38e34a",
-  "2b440f2f2242329b61b59d9ebfc9b9de::1220b8c43489f1c53f030a8a5c3b5ce864abdf1b8f548f43194c149fbfa76c6e08a0",
+  "derive-dealerA::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "derive-dealerB::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "derive-dealerC::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
+  "derive-regulator::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8",
 ];
 
 function getAllowlist(): string[] {

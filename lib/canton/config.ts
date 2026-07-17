@@ -17,14 +17,19 @@ function requireEnv(name: string): string {
 export const CANTON_LEDGER_API_URL = requireEnv("CANTON_LEDGER_API_URL");
 export const CANTON_PACKAGE_ID = requireEnv("CANTON_PACKAGE_ID");
 
+// Package-name reference (#pkg-name), resolved by the ledger to the highest
+// vetted package version. Required by ACS filters (which reject raw package
+// IDs) and accepted by commands; survives DAR upgrades without env changes.
+const PKG = "#derive-templates";
+
 // Template IDs for all DERIVE contracts
 export const TEMPLATE_IDS = {
-  TradeProposal: `${CANTON_PACKAGE_ID}:Templates.Trade:TradeProposal`,
-  DerivativeTrade: `${CANTON_PACKAGE_ID}:Templates.Trade:DerivativeTrade`,
-  ValuationSnapshot: `${CANTON_PACKAGE_ID}:Templates.Margin:ValuationSnapshot`,
-  MarginCallDemand: `${CANTON_PACKAGE_ID}:Templates.Margin:MarginCallDemand`,
-  NovationRequest: `${CANTON_PACKAGE_ID}:Templates.Novation:NovationRequest`,
-  NovationExecution: `${CANTON_PACKAGE_ID}:Templates.Novation:NovationExecution`,
-  RegulatoryDisclosure: `${CANTON_PACKAGE_ID}:Templates.Disclosure:RegulatoryDisclosure`,
-  RegulatoryDisclosureRequest: `${CANTON_PACKAGE_ID}:Templates.Disclosure:RegulatoryDisclosureRequest`,
+  TradeProposal: `${PKG}:Templates.Trade:TradeProposal`,
+  DerivativeTrade: `${PKG}:Templates.Trade:DerivativeTrade`,
+  ValuationSnapshot: `${PKG}:Templates.Margin:ValuationSnapshot`,
+  MarginCallDemand: `${PKG}:Templates.Margin:MarginCallDemand`,
+  NovationRequest: `${PKG}:Templates.Novation:NovationRequest`,
+  NovationExecution: `${PKG}:Templates.Novation:NovationExecution`,
+  RegulatoryDisclosure: `${PKG}:Templates.Disclosure:RegulatoryDisclosure`,
+  RegulatoryDisclosureRequest: `${PKG}:Templates.Disclosure:RegulatoryDisclosureRequest`,
 } as const;

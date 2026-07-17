@@ -1,7 +1,11 @@
 /**
  * Canton Ledger API v2 Client
- * 
- * Implements the JSON Ledger API v2 protocol for Canton Network.
+ *
+ * Implements the JSON Ledger API v2 protocol as served by Canton 3.5
+ * (verified against the live 5N sandbox participant):
+ *   - commands:  POST /v2/commands/submit-and-wait-for-transaction
+ *   - ACS query: POST /v2/state/active-contracts (+ GET /v2/state/ledger-end)
+ *   - lookup:    POST /v2/events/events-by-contract-id
  * Uses automatic token refresh via auth module.
  */
 
@@ -25,34 +29,18 @@ export interface CantonContract {
 export interface CantonUpdate {
   transactionId?: string;
   effectiveAt?: string;
-  events?: CantonEvent[];
-}
-
-export interface CantonEvent {
-  eventType: "created" | "exercised" | "archived";
-  contractId?: string;
-  templateId?: string;
-  createArguments?: Record<string, unknown>;
-  choice?: string;
-  exerciseResult?: unknown;
-}
-
-export interface LedgerCommandRequest {
-  parties: string[];
-  commandId?: string;
-  workflowId?: string;
-  command: LedgerCommand;
+  events?: unknown[];
 }
 
 export type LedgerCommand =
   | {
-      create: {
+      CreateCommand: {
         templateId: string;
         createArguments: Record<string, unknown>;
       };
     }
   | {
-      exercise: {
+      ExerciseCommand: {
         templateId: string;
         contractId: string;
         choice: string;
@@ -60,10 +48,17 @@ export type LedgerCommand =
       };
     };
 
-export interface ContractSearchRequest {
-  parties: string[];
-  templateIds: string[];
-  query?: Record<string, unknown>;
+interface JsCreatedEvent {
+  contractId: string;
+  templateId: string;
+  createArgument?: Record<string, unknown>;
+  createdAt?: string;
+}
+
+interface JsTransaction {
+  updateId?: string;
+  effectiveAt?: string;
+  events?: Array<Record<string, JsCreatedEvent>>;
 }
 
 /**
@@ -85,31 +80,53 @@ function buildCommandId(): string {
 }
 
 /**
- * Submit a create command to the ledger
+ * Per-party cumulative filter used by ACS queries and event lookups.
+ * Template IDs must be package-name references (#pkg-name:Module:Entity);
+ * the ledger rejects raw package-ID references in filters.
  */
-export async function submitCreate(
+function buildFiltersByParty(
   parties: string[],
-  templateId: string,
-  createArguments: Record<string, unknown>,
+  templateIds?: string[],
+): Record<string, unknown> {
+  const cumulative =
+    templateIds && templateIds.length > 0
+      ? templateIds.map((templateId) => ({
+          identifierFilter: {
+            TemplateFilter: { value: { templateId, includeCreatedEventBlob: false } },
+          },
+        }))
+      : [
+          {
+            identifierFilter: {
+              WildcardFilter: { value: { includeCreatedEventBlob: false } },
+            },
+          },
+        ];
+  return Object.fromEntries(parties.map((p) => [p, { cumulative }]));
+}
+
+async function submitCommand(
+  parties: string[],
+  command: LedgerCommand,
 ): Promise<CantonCommandResult> {
-  const body: LedgerCommandRequest = {
-    parties,
-    commandId: buildCommandId(),
-    command: {
-      create: {
-        templateId,
-        createArguments,
-      },
+  const body = {
+    commands: {
+      commands: [command],
+      commandId: buildCommandId(),
+      actAs: parties,
     },
   };
 
   try {
     const headers = await buildHeaders();
-    const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/commands/submit-and-wait`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      `${CANTON_LEDGER_API_URL}/v2/commands/submit-and-wait-for-transaction`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      },
+    );
 
     if (!res.ok) {
       const text = await res.text();
@@ -117,14 +134,16 @@ export async function submitCreate(
     }
 
     const data = await res.json();
-    
-    // Extract contracts from the update
-    const contracts = extractContractsFromUpdate(data.update);
-    
+    const transaction: JsTransaction = data.transaction ?? {};
+
     return {
       status: res.status,
-      contracts,
-      update: data.update,
+      contracts: extractCreatedFromTransaction(transaction),
+      update: {
+        transactionId: transaction.updateId,
+        effectiveAt: transaction.effectiveAt,
+        events: transaction.events,
+      },
     };
   } catch (error) {
     return {
@@ -132,6 +151,17 @@ export async function submitCreate(
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+/**
+ * Submit a create command to the ledger
+ */
+export async function submitCreate(
+  parties: string[],
+  templateId: string,
+  createArguments: Record<string, unknown>,
+): Promise<CantonCommandResult> {
+  return submitCommand(parties, { CreateCommand: { templateId, createArguments } });
 }
 
 /**
@@ -144,46 +174,9 @@ export async function submitExercise(
   choice: string,
   choiceArgument: Record<string, unknown> = {},
 ): Promise<CantonCommandResult> {
-  const body: LedgerCommandRequest = {
-    parties,
-    commandId: buildCommandId(),
-    command: {
-      exercise: {
-        templateId,
-        contractId,
-        choice,
-        choiceArgument,
-      },
-    },
-  };
-
-  try {
-    const headers = await buildHeaders();
-    const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/commands/submit-and-wait`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      return { status: res.status, error: text };
-    }
-
-    const data = await res.json();
-    const contracts = extractContractsFromUpdate(data.update);
-    
-    return {
-      status: res.status,
-      contracts,
-      update: data.update,
-    };
-  } catch (error) {
-    return {
-      status: 500,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+  return submitCommand(parties, {
+    ExerciseCommand: { templateId, contractId, choice, choiceArgument },
+  });
 }
 
 /**
@@ -193,14 +186,20 @@ export async function queryContracts(
   parties: string[],
   templateIds: string[],
 ): Promise<CantonCommandResult> {
-  const body: ContractSearchRequest = {
-    parties,
-    templateIds,
-  };
-
   try {
+    const { ledgerEnd, error: offsetError } = await getLedgerEnd();
+    if (offsetError) {
+      return { status: 502, error: offsetError };
+    }
+
+    const body = {
+      filter: { filtersByParty: buildFiltersByParty(parties, templateIds) },
+      verbose: true,
+      activeAtOffset: ledgerEnd,
+    };
+
     const headers = await buildHeaders();
-    const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/contracts/search`, {
+    const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/state/active-contracts`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -211,20 +210,16 @@ export async function queryContracts(
       return { status: res.status, error: text };
     }
 
-    const data = await res.json();
-    
-    // Extract contracts from search response
-    const contracts = data.contracts || [];
-    
-    return {
-      status: res.status,
-      contracts: contracts.map((c: any) => ({
-        contractId: c.contractId,
-        templateId: c.templateId,
-        payload: c.payload || c.createArguments || {},
-        createdAt: c.createdAt,
-      })),
-    };
+    const entries: Array<{
+      contractEntry?: { JsActiveContract?: { createdEvent?: JsCreatedEvent } };
+    }> = await res.json();
+
+    const contracts = entries
+      .map((e) => e.contractEntry?.JsActiveContract?.createdEvent)
+      .filter((ev): ev is JsCreatedEvent => Boolean(ev?.contractId))
+      .map(mapCreatedEvent);
+
+    return { status: res.status, contracts };
   } catch (error) {
     return {
       status: 500,
@@ -241,13 +236,16 @@ export async function lookupContract(
   contractId: string,
 ): Promise<CantonCommandResult> {
   const body = {
-    parties,
     contractId,
+    eventFormat: {
+      filtersByParty: buildFiltersByParty(parties),
+      verbose: true,
+    },
   };
 
   try {
     const headers = await buildHeaders();
-    const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/contracts/lookup`, {
+    const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/events/events-by-contract-id`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -259,18 +257,12 @@ export async function lookupContract(
     }
 
     const data = await res.json();
-    
-    return {
-      status: res.status,
-      contracts: [
-        {
-          contractId: data.contractId,
-          templateId: data.templateId,
-          payload: data.payload || data.createArguments || {},
-          createdAt: data.createdAt,
-        },
-      ],
-    };
+    const createdEvent: JsCreatedEvent | undefined = data.created?.createdEvent;
+    if (!createdEvent?.contractId) {
+      return { status: 404, error: "Contract not found or not visible to party" };
+    }
+
+    return { status: res.status, contracts: [mapCreatedEvent(createdEvent)] };
   } catch (error) {
     return {
       status: 500,
@@ -280,9 +272,9 @@ export async function lookupContract(
 }
 
 /**
- * Get the current ledger end (useful for synchronization)
+ * Get the current ledger end offset (used for ACS synchronization)
  */
-export async function getLedgerEnd(): Promise<{ ledgerEnd: string; error?: string }> {
+export async function getLedgerEnd(): Promise<{ ledgerEnd: number; error?: string }> {
   try {
     const headers = await buildHeaders();
     const res = await fetch(`${CANTON_LEDGER_API_URL}/v2/state/ledger-end`, {
@@ -292,32 +284,37 @@ export async function getLedgerEnd(): Promise<{ ledgerEnd: string; error?: strin
 
     if (!res.ok) {
       const text = await res.text();
-      return { ledgerEnd: "", error: text };
+      return { ledgerEnd: 0, error: text };
     }
 
     const data = await res.json();
-    return { ledgerEnd: data.ledgerEnd || data.offset || "" };
+    return { ledgerEnd: data.offset ?? 0 };
   } catch (error) {
     return {
-      ledgerEnd: "",
+      ledgerEnd: 0,
       error: error instanceof Error ? error.message : String(error),
     };
   }
 }
 
+function mapCreatedEvent(ev: JsCreatedEvent): CantonContract {
+  return {
+    contractId: ev.contractId,
+    templateId: ev.templateId,
+    payload: ev.createArgument ?? {},
+    createdAt: ev.createdAt,
+  };
+}
+
 /**
- * Extract created contracts from a transaction update
+ * Extract created contracts from a transaction's events
  */
-function extractContractsFromUpdate(update: CantonUpdate | undefined): CantonContract[] {
-  if (!update?.events) return [];
-  
-  return update.events
-    .filter((e) => e.eventType === "created" && e.contractId && e.templateId)
-    .map((e) => ({
-      contractId: e.contractId!,
-      templateId: e.templateId!,
-      payload: e.createArguments || {},
-    }));
+function extractCreatedFromTransaction(transaction: JsTransaction): CantonContract[] {
+  if (!transaction.events) return [];
+  return transaction.events
+    .map((e) => e.CreatedEvent)
+    .filter((ev): ev is JsCreatedEvent => Boolean(ev?.contractId))
+    .map(mapCreatedEvent);
 }
 
 /**

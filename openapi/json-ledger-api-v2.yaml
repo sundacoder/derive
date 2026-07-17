@@ -2,85 +2,166 @@ openapi: "3.0.3"
 info:
   title: Canton JSON Ledger API v2
   version: "2.0.0"
-  description: JSON Ledger API v2 for the Canton Network
+  description: >
+    JSON Ledger API v2 for the Canton Network, as served by Canton 3.5
+    participants (verified against the 5N sandbox DevNet validator).
+    Template IDs in ACS/event filters must be package-name references
+    (e.g. "#derive-templates:Templates.Trade:TradeProposal"); raw
+    package-ID references are rejected in filters but accepted in commands.
 servers:
   - url: http://localhost:5011
     description: Local participant node
+  - url: https://ledger-api.validator.devnet.sandbox.fivenorth.io
+    description: 5N sandbox DevNet validator
 paths:
-  /v2/contracts/lookup:
+  /v2/commands/submit-and-wait-for-transaction:
     post:
-      operationId: lookupContract
-      summary: Look up a contract by ID
+      operationId: submitAndWaitForTransaction
+      summary: Submit a command and wait for the resulting transaction (incl. events)
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [commands]
               properties:
-                contractId:
-                  type: string
-                parties:
-                  type: array
-                  items:
-                    type: string
+                commands:
+                  type: object
+                  required: [commands, commandId, actAs]
+                  properties:
+                    commands:
+                      type: array
+                      description: One-of variant objects, e.g. {"CreateCommand": {...}} or {"ExerciseCommand": {...}}
+                      items:
+                        type: object
+                        properties:
+                          CreateCommand:
+                            type: object
+                            properties:
+                              templateId:
+                                type: string
+                              createArguments:
+                                type: object
+                          ExerciseCommand:
+                            type: object
+                            properties:
+                              templateId:
+                                type: string
+                              contractId:
+                                type: string
+                              choice:
+                                type: string
+                              choiceArgument:
+                                type: object
+                    commandId:
+                      type: string
+                    actAs:
+                      type: array
+                      items:
+                        type: string
+                    readAs:
+                      type: array
+                      items:
+                        type: string
+                    workflowId:
+                      type: string
       responses:
         "200":
-          description: Contract data
+          description: >
+            {"transaction": {"updateId", "effectiveAt", "events": [{"CreatedEvent": {contractId,
+            templateId, createArgument, ...}} | {"ArchivedEvent": {...}}]}}
   /v2/commands/submit-and-wait:
     post:
       operationId: submitAndWait
-      summary: Submit a command and wait for completion
+      summary: Submit a command and wait for completion (no transaction events returned)
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [commands, commandId, actAs]
               properties:
+                commands:
+                  type: array
+                  items:
+                    type: object
                 commandId:
                   type: string
-                workflowId:
-                  type: string
-                parties:
+                actAs:
                   type: array
                   items:
                     type: string
-                command:
-                  type: object
-                  properties:
-                    create:
-                      type: object
-                    exercise:
-                      type: object
-                    exerciseByKey:
-                      type: object
-                    createAndExercise:
-                      type: object
       responses:
         "200":
-          description: Command submission result
-  /v2/contracts/search:
+          description: '{"updateId", "completionOffset"}'
+  /v2/state/ledger-end:
+    get:
+      operationId: getLedgerEnd
+      summary: Current ledger end offset
+      responses:
+        "200":
+          description: '{"offset": <int>}'
+  /v2/state/active-contracts:
     post:
-      operationId: searchContracts
-      summary: Search for contracts by template ID
+      operationId: getActiveContracts
+      summary: Query the Active Contract Set at a given offset
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [filter, activeAtOffset]
               properties:
-                templateIds:
-                  type: array
-                  items:
-                    type: string
-                query:
+                filter:
                   type: object
-                parties:
-                  type: array
-                  items:
-                    type: string
+                  properties:
+                    filtersByParty:
+                      type: object
+                      description: >
+                        Map of party -> {"cumulative": [{"identifierFilter":
+                        {"TemplateFilter": {"value": {"templateId": "#pkg-name:Mod:Ent",
+                        "includeCreatedEventBlob": false}}} | {"WildcardFilter":
+                        {"value": {"includeCreatedEventBlob": false}}}}]}
+                verbose:
+                  type: boolean
+                activeAtOffset:
+                  type: integer
       responses:
         "200":
-          description: Matching contracts
+          description: >
+            Array of {"contractEntry": {"JsActiveContract": {"createdEvent": {contractId,
+            templateId, createArgument, ...}}}}
+  /v2/events/events-by-contract-id:
+    post:
+      operationId: getEventsByContractId
+      summary: Look up create/archive events for a contract ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contractId, eventFormat]
+              properties:
+                contractId:
+                  type: string
+                eventFormat:
+                  type: object
+                  properties:
+                    filtersByParty:
+                      type: object
+                    verbose:
+                      type: boolean
+      responses:
+        "200":
+          description: '{"created": {"createdEvent": {...}}, "archived": {...}}'
+  /v2/version:
+    get:
+      operationId: getVersion
+      summary: Participant version and feature descriptors
+      responses:
+        "200":
+          description: '{"version": "3.5.8", "features": {...}}'

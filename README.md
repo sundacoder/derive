@@ -133,15 +133,16 @@ CANTON_SCOPE=daml_ledger_api
 
 ### Whitelisted Party IDs
 
-Only the following Party IDs are authorized to connect (enforced by `middleware.ts` and `lib/canton/authorization.ts`, sourced from `lib/config/allowlist.ts`). Use one of these when connecting a wallet in the UI:
+Only the following Party IDs are authorized to connect (enforced by `middleware.ts` and `lib/canton/authorization.ts`, sourced from `lib/config/allowlist.ts`). All four are local parties on the 5N sandbox validator, and the OIDC M2M ledger user holds `CanActAs` rights on each. Use one of these when connecting a wallet in the UI:
 
-```
-de1bf9dc70e28f881b581f24fd7fd703::1220d8416df6cd7f3e0527a6ced9c91010488860dfc4a34f8a093eebc060eb47b295
-253cb66316f7ed1202d91ae25d7d54a3::12209bbbd56c433cff2d42ec95cfb57f81b0e6fbc0a7e9b5bb9125b4cca3df38e34a
-2b440f2f2242329b61b59d9ebfc9b9de::1220b8c43489f1c53f030a8a5c3b5ce864abdf1b8f548f43194c149fbfa76c6e08a0
-```
+| Role | Party ID |
+|---|---|
+| Dealer A (proposer) | `derive-dealerA::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8` |
+| Dealer B (acceptor) | `derive-dealerB::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8` |
+| Dealer C (novation incoming) | `derive-dealerC::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8` |
+| Regulator (disclosure) | `derive-regulator::1220a14ca128063b8dc9d1ebb0bd22633be9f2168500f4dbc1ecaeb1855b14e5acf8` |
 
-These are the hardcoded defaults compiled into the app. To use a different set (e.g. for a different DevNet environment), override with `ALLOWED_PARTY_IDS` in `.env.local` as a semicolon-separated list.
+These are the hardcoded defaults compiled into the app. To use a different set (e.g. for a different DevNet environment), override with `ALLOWED_PARTY_IDS` in `.env.local` (and in Vercel project env vars) as a semicolon-separated list. Parties must be local to the participant behind `CANTON_LEDGER_API_URL`, and the M2M ledger user must hold `CanActAs` rights on them.
 
 ### Install & Run
 

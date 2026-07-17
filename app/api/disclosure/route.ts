@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
       assetClass,
       maturityBucket,
       counterpartyLeis: counterpartyLeis ?? [],
-      tradeCount,
+      // Daml Int64 is encoded as a JSON string on the wire
+      tradeCount: String(tradeCount ?? 0),
       totalGrossNotional: totalGrossNotional.toString(),
       generatedAt: generatedAt ?? new Date().toISOString().slice(0, 10),
       schemaVersion: schemaVersion ?? "1.0.0",
